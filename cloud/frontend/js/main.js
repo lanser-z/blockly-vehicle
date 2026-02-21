@@ -266,14 +266,14 @@ function defineCodeGenerator() {
     // 逻辑积木代码生成
     state.codeGenerator.forBlock['controls_if'] = function(block) {
         const condition = state.codeGenerator.valueToCode(block, 'CONDITION', state.codeGenerator.ORDER_NONE) || 'False';
-        const branch = state.codeGenerator.statementToCode(block, 'DO');
+        let branch = state.codeGenerator.statementToCode(block, 'DO');
         branch = state.codeGenerator.addLoopTrap(branch, block);
         return `if ${condition}:\n${branch}\n`;
     };
 
     state.codeGenerator.forBlock['controls_repeat_ext'] = function(block) {
         const repeats = state.codeGenerator.valueToCode(block, 'TIMES', state.codeGenerator.ORDER_NONE) || '0';
-        const branch = state.codeGenerator.statementToCode(block, 'DO');
+        let branch = state.codeGenerator.statementToCode(block, 'DO');
         branch = state.codeGenerator.addLoopTrap(branch, block);
         return `for _ in range(${repeats}):\n${branch}\n`;
     };
