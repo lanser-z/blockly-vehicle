@@ -1,12 +1,12 @@
 // ===== 导入课程数据 =====
 import { COURSES, CourseManager } from './courses.js';
+// ===== 导入语言管理器 =====
+import { languageManager, refreshTranslations, t } from './pinyin.js';
 
 // ===== 全局配置 =====
 const CONFIG = {
-    // Socket.IO连接URL - 连接到公网网关
-    serverUrl: 'https://lanser.fun',
-    // Socket.IO 路径
-    path: '/block/ws/gateway',
+    // WebSocket连接URL - 连接到公网网关（使用原生WebSocket协议）
+    wsUrl: 'wss://lanser.fun/block/ws/gateway',
     reconnectInterval: 5000,
 };
 
@@ -24,115 +24,242 @@ const state = {
     currentCourse: null,
 };
 
-// ===== Blockly工具箱定义 =====
-const toolbox = {
-    contents: [
-        {
-            kind: 'category',
-            name: '运动',
-            colour: '#4C97FF',
-            contents: [
-                { kind: 'block', type: 'motion_forward' },
-                { kind: 'block', type: 'motion_backward' },
-                { kind: 'block', type: 'motion_left' },
-                { kind: 'block', type: 'motion_right' },
-                { kind: 'block', type: 'motion_turn_left' },
-                { kind: 'block', type: 'motion_turn_right' },
-                { kind: 'block', type: 'motion_stop' },
-            ],
-        },
-        {
-            kind: 'category',
-            name: '云台',
-            colour: '#A57C5B',
-            contents: [
-                { kind: 'block', type: 'gimbal_up' },
-                { kind: 'block', type: 'gimbal_down' },
-                { kind: 'block', type: 'gimbal_left' },
-                { kind: 'block', type: 'gimbal_right' },
-                { kind: 'block', type: 'gimbal_reset' },
-            ],
-        },
-        {
-            kind: 'category',
-            name: '传感',
-            colour: '#99CA49',
-            contents: [
-                { kind: 'block', type: 'sensor_ultrasonic' },
-                { kind: 'block', type: 'sensor_line' },
-            ],
-        },
-        {
-            kind: 'category',
-            name: '视觉',
-            colour: '#9E5BE9',
-            contents: [
-                { kind: 'block', type: 'vision_detect_color' },
-            ],
-        },
-        {
-            kind: 'category',
-            name: '变量',
-            colour: '#A55B80',
-            custom: 'VARIABLE',
-        },
-        {
-            kind: 'category',
-            name: '数学',
-            colour: '#59C059',
-            contents: [
-                { kind: 'block', type: 'math_number' },
-                { kind: 'block', type: 'math_arithmetic' },
-                { kind: 'block', type: 'math_single' },
-                { kind: 'block', type: 'math_constant' },
-                { kind: 'block', type: 'math_modulo' },
-                { kind: 'block', type: 'math_round' },
-                { kind: 'block', type: 'math_random_int' },
-            ],
-        },
-        {
-            kind: 'category',
-            name: '逻辑',
-            colour: '#FFAB19',
-            contents: [
-                { kind: 'block', type: 'controls_if' },
-                { kind: 'block', type: 'logic_compare' },
-                { kind: 'block', type: 'logic_operation' },
-                { kind: 'block', type: 'logic_boolean' },
-                { kind: 'block', type: 'controls_repeat_ext' },
-                { kind: 'block', type: 'controls_for' },
-                { kind: 'block', type: 'controls_whileUntil' },
-                { kind: 'block', type: 'delay_wait' },
-            ],
-        },
-        {
-            kind: 'category',
-            name: '文本',
-            colour: '#9966FF',
-            contents: [
-                { kind: 'block', type: 'text' },
-                { kind: 'block', type: 'text_join' },
-                { kind: 'block', type: 'text_length' },
-                { kind: 'block', type: 'text_print' },
-            ],
-        },
-        {
-            kind: 'category',
-            name: '列表',
-            colour: '#FF6680',
-            contents: [
-                { kind: 'block', type: 'lists_create_with' },
-                { kind: 'block', type: 'lists_length' },
-            ],
-        },
-        {
-            kind: 'category',
-            name: '函数',
-            colour: '#FF9966',
-            custom: 'PROCEDURE',
-        },
-    ],
+// ===== 积木分类翻译 =====
+const CATEGORY_TRANSLATIONS = {
+    chinese: {
+        motion: '运动',
+        gimbal: '云台',
+        sensor: '传感',
+        vision: '视觉',
+        variables: '变量',
+        math: '数学',
+        logic: '逻辑',
+        text: '文本',
+        lists: '列表',
+        functions: '函数',
+    },
+    pinyin: {
+        motion: 'yùn dòng',
+        gimbal: 'yún tái',
+        sensor: 'chuán gǎn',
+        vision: 'shì jué',
+        variables: 'biàn liàng',
+        math: 'shù xué',
+        logic: 'luó ji',
+        text: 'wén běn',
+        lists: 'liè biǎo',
+        functions: 'hán shù',
+    }
 };
+
+// ===== 积木块文字翻译 =====
+const BLOCK_TEXT_TRANSLATIONS = {
+    chinese: {
+        // 运动积木
+        forward: '前进',
+        backward: '后退',
+        left: '左平移',
+        right: '右平移',
+        stop: '停止',
+        turn_left: '左转',
+        turn_right: '右转',
+        slow: '慢速',
+        medium: '中速',
+        fast: '快速',
+        // 云台积木
+        gimbal_up: '云台向上',
+        gimbal_down: '云台向下',
+        gimbal_left: '云台向左',
+        gimbal_right: '云台向右',
+        gimbal_reset: '云台复位',
+        // 传感积木
+        ultrasonic: '超声波距离',
+        line_sensor: '巡线传感器',
+        // 视觉积木
+        detect_color: '检测颜色',
+        // 逻辑积木
+        if_do: '如果',
+        then_do: '就',
+        repeat_times: '重复执行',
+        times: '次',
+        wait: '等待',
+        seconds: '秒',
+        // 颜色
+        red: '红色',
+        green: '绿色',
+        blue: '蓝色',
+        yellow: '黄色',
+        orange: '橙色',
+        // 巡线通道
+        channel_1: '第1路',
+        channel_2: '第2路',
+        channel_3: '第3路',
+        channel_4: '第4路',
+    },
+    pinyin: {
+        // 运动积木
+        forward: 'qián jìn',
+        backward: 'hòu tuì',
+        left: 'zuǒ píng yí',
+        right: 'yòu píng yí',
+        stop: 'tíng zhǐ',
+        turn_left: 'xiǎo zuǒ zhuǎn',
+        turn_right: 'xiǎo yòu zhuǎn',
+        slow: 'màn sù',
+        medium: 'zhōng sù',
+        fast: 'kuài sù',
+        // 云台积木
+        gimbal_up: 'yún tái xiàng shàng',
+        gimbal_down: 'yún tái xiàng xià',
+        gimbal_left: 'yún tái xiàng zuǒ',
+        gimbal_right: 'yún tái xiàng yòu',
+        gimbal_reset: 'yún tái fù wèi',
+        // 传感积木
+        ultrasonic: 'chāo shēng bō jù lí',
+        line_sensor: 'xún xiàn chuán gǎn qì',
+        // 视觉积木
+        detect_color: 'jiǎn cè yán sè',
+        // 逻辑积木
+        if_do: 'rú guǒ',
+        then_do: 'jiù',
+        repeat_times: 'chóng fù zhí xíng',
+        times: 'cì',
+        wait: 'děng dài',
+        seconds: 'miǎo',
+        // 颜色
+        red: 'hóng sè',
+        green: 'lǜ sè',
+        blue: 'lán sè',
+        yellow: 'huáng sè',
+        orange: 'chéng sè',
+        // 巡线通道
+        channel_1: 'dì 1 lù',
+        channel_2: 'dì 2 lù',
+        channel_3: 'dì 3 lù',
+        channel_4: 'dì 4 lù',
+    }
+};
+
+// 获取积木块文字翻译
+function getBlockText(key) {
+    const lang = languageManager.isPinyinMode ? 'pinyin' : 'chinese';
+    return BLOCK_TEXT_TRANSLATIONS[lang][key] || BLOCK_TEXT_TRANSLATIONS.chinese[key] || key;
+}
+
+// ===== 获取当前语言的工具箱定义 =====
+function getToolbox() {
+    const lang = languageManager.isPinyinMode ? 'pinyin' : 'chinese';
+    const cat = CATEGORY_TRANSLATIONS[lang];
+
+    return {
+        contents: [
+            {
+                kind: 'category',
+                name: cat.motion,
+                colour: '#4C97FF',
+                contents: [
+                    { kind: 'block', type: 'motion_forward' },
+                    { kind: 'block', type: 'motion_backward' },
+                    { kind: 'block', type: 'motion_left' },
+                    { kind: 'block', type: 'motion_right' },
+                    { kind: 'block', type: 'motion_turn_left' },
+                    { kind: 'block', type: 'motion_turn_right' },
+                    { kind: 'block', type: 'motion_stop' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.gimbal,
+                colour: '#A57C5B',
+                contents: [
+                    { kind: 'block', type: 'gimbal_up' },
+                    { kind: 'block', type: 'gimbal_down' },
+                    { kind: 'block', type: 'gimbal_left' },
+                    { kind: 'block', type: 'gimbal_right' },
+                    { kind: 'block', type: 'gimbal_reset' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.sensor,
+                colour: '#99CA49',
+                contents: [
+                    { kind: 'block', type: 'sensor_ultrasonic' },
+                    { kind: 'block', type: 'sensor_line' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.vision,
+                colour: '#9E5BE9',
+                contents: [
+                    { kind: 'block', type: 'vision_detect_color' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.variables,
+                colour: '#A55B80',
+                custom: 'VARIABLE',
+            },
+            {
+                kind: 'category',
+                name: cat.math,
+                colour: '#59C059',
+                contents: [
+                    { kind: 'block', type: 'math_number' },
+                    { kind: 'block', type: 'math_arithmetic' },
+                    { kind: 'block', type: 'math_single' },
+                    { kind: 'block', type: 'math_constant' },
+                    { kind: 'block', type: 'math_modulo' },
+                    { kind: 'block', type: 'math_round' },
+                    { kind: 'block', type: 'math_random_int' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.logic,
+                colour: '#FFAB19',
+                contents: [
+                    { kind: 'block', type: 'controls_if' },
+                    { kind: 'block', type: 'logic_compare' },
+                    { kind: 'block', type: 'logic_operation' },
+                    { kind: 'block', type: 'logic_boolean' },
+                    { kind: 'block', type: 'controls_repeat_ext' },
+                    { kind: 'block', type: 'controls_for' },
+                    { kind: 'block', type: 'controls_whileUntil' },
+                    { kind: 'block', type: 'delay_wait' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.text,
+                colour: '#9966FF',
+                contents: [
+                    { kind: 'block', type: 'text' },
+                    { kind: 'block', type: 'text_join' },
+                    { kind: 'block', type: 'text_length' },
+                    { kind: 'block', type: 'text_print' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.lists,
+                colour: '#FF6680',
+                contents: [
+                    { kind: 'block', type: 'lists_create_with' },
+                    { kind: 'block', type: 'lists_length' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.functions,
+                colour: '#FF9966',
+                custom: 'PROCEDURE',
+            },
+        ],
+    };
+}
 
 // ===== 初始化Blockly =====
 function initBlockly() {
@@ -144,9 +271,9 @@ function initBlockly() {
     // 定义缩进
     state.codeGenerator.INDENT = '    ';
 
-    // 初始化工作区
+    // 初始化工作区 - 使用动态工具箱
     const workspace = Blockly.inject('blockly-div', {
-        toolbox: toolbox,
+        toolbox: getToolbox(),
         scrollbars: true,
         trashcan: true,
         zoom: {
@@ -190,11 +317,11 @@ function defineBlocks() {
     Blockly.Blocks['motion_forward'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('⬆️ 前进')
+                .appendField('⬆️ ' + getBlockText('forward'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 慢速', '30'],
-                    ['🚶 中速', '50'],
-                    ['🏃 快速', '70'],
+                    ['🐢 ' + getBlockText('slow'), '30'],
+                    ['🚶 ' + getBlockText('medium'), '50'],
+                    ['🏃 ' + getBlockText('fast'), '70'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -206,11 +333,11 @@ function defineBlocks() {
     Blockly.Blocks['motion_backward'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('⬇️ 后退')
+                .appendField('⬇️ ' + getBlockText('backward'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 慢速', '30'],
-                    ['🚶 中速', '50'],
-                    ['🏃 快速', '70'],
+                    ['🐢 ' + getBlockText('slow'), '30'],
+                    ['🚶 ' + getBlockText('medium'), '50'],
+                    ['🏃 ' + getBlockText('fast'), '70'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -222,11 +349,11 @@ function defineBlocks() {
     Blockly.Blocks['motion_left'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('⬅️ 左平移')
+                .appendField('⬅️ ' + getBlockText('left'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 慢速', '30'],
-                    ['🚶 中速', '50'],
-                    ['🏃 快速', '70'],
+                    ['🐢 ' + getBlockText('slow'), '30'],
+                    ['🚶 ' + getBlockText('medium'), '50'],
+                    ['🏃 ' + getBlockText('fast'), '70'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -238,11 +365,11 @@ function defineBlocks() {
     Blockly.Blocks['motion_right'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('➡️ 右平移')
+                .appendField('➡️ ' + getBlockText('right'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 慢速', '30'],
-                    ['🚶 中速', '50'],
-                    ['🏃 快速', '70'],
+                    ['🐢 ' + getBlockText('slow'), '30'],
+                    ['🚶 ' + getBlockText('medium'), '50'],
+                    ['🏃 ' + getBlockText('fast'), '70'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -253,7 +380,7 @@ function defineBlocks() {
     // 停止积木
     Blockly.Blocks['motion_stop'] = {
         init: function() {
-            this.appendDummyInput().appendField('🛑 停止');
+            this.appendDummyInput().appendField('🛑 ' + getBlockText('stop'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(230);
@@ -264,11 +391,11 @@ function defineBlocks() {
     Blockly.Blocks['motion_turn_left'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('↪️ 左转')
+                .appendField('↪️ ' + getBlockText('turn_left'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 慢速', '30'],
-                    ['🚶 中速', '50'],
-                    ['🏃 快速', '70'],
+                    ['🐢 ' + getBlockText('slow'), '30'],
+                    ['🚶 ' + getBlockText('medium'), '50'],
+                    ['🏃 ' + getBlockText('fast'), '70'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -280,11 +407,11 @@ function defineBlocks() {
     Blockly.Blocks['motion_turn_right'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('↩️ 右转')
+                .appendField('↩️ ' + getBlockText('turn_right'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 慢速', '30'],
-                    ['🚶 中速', '50'],
-                    ['🏃 快速', '70'],
+                    ['🐢 ' + getBlockText('slow'), '30'],
+                    ['🚶 ' + getBlockText('medium'), '50'],
+                    ['🏃 ' + getBlockText('fast'), '70'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -295,7 +422,7 @@ function defineBlocks() {
     // 云台向上积木
     Blockly.Blocks['gimbal_up'] = {
         init: function() {
-            this.appendDummyInput().appendField('⬆️ 云台向上');
+            this.appendDummyInput().appendField('⬆️ ' + getBlockText('gimbal_up'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(330);
@@ -305,7 +432,7 @@ function defineBlocks() {
     // 云台向下积木
     Blockly.Blocks['gimbal_down'] = {
         init: function() {
-            this.appendDummyInput().appendField('⬇️ 云台向下');
+            this.appendDummyInput().appendField('⬇️ ' + getBlockText('gimbal_down'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(330);
@@ -315,7 +442,7 @@ function defineBlocks() {
     // 云台向左积木
     Blockly.Blocks['gimbal_left'] = {
         init: function() {
-            this.appendDummyInput().appendField('⬅️ 云台向左');
+            this.appendDummyInput().appendField('⬅️ ' + getBlockText('gimbal_left'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(330);
@@ -325,7 +452,7 @@ function defineBlocks() {
     // 云台向右积木
     Blockly.Blocks['gimbal_right'] = {
         init: function() {
-            this.appendDummyInput().appendField('➡️ 云台向右');
+            this.appendDummyInput().appendField('➡️ ' + getBlockText('gimbal_right'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(330);
@@ -335,7 +462,7 @@ function defineBlocks() {
     // 云台复位积木
     Blockly.Blocks['gimbal_reset'] = {
         init: function() {
-            this.appendDummyInput().appendField('🔄 云台复位');
+            this.appendDummyInput().appendField('🔄 ' + getBlockText('gimbal_reset'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(330);
@@ -345,7 +472,7 @@ function defineBlocks() {
     // 超声波传感器积木
     Blockly.Blocks['sensor_ultrasonic'] = {
         init: function() {
-            this.appendDummyInput().appendField('📡 超声波距离');
+            this.appendDummyInput().appendField('📡 ' + getBlockText('ultrasonic'));
             this.setOutput(true, 'Number');
             this.setColour(120);
         }
@@ -355,12 +482,12 @@ function defineBlocks() {
     Blockly.Blocks['sensor_line'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('🔍 巡线传感器')
+                .appendField('🔍 ' + getBlockText('line_sensor'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['第1路', '0'],
-                    ['第2路', '1'],
-                    ['第3路', '2'],
-                    ['第4路', '3'],
+                    [getBlockText('channel_1'), '0'],
+                    [getBlockText('channel_2'), '1'],
+                    [getBlockText('channel_3'), '2'],
+                    [getBlockText('channel_4'), '3'],
                 ]), 'CHANNEL');
             this.setOutput(true, 'Boolean');
             this.setColour(120);
@@ -371,13 +498,13 @@ function defineBlocks() {
     Blockly.Blocks['vision_detect_color'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('🎨 检测颜色')
+                .appendField('🎨 ' + getBlockText('detect_color'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['红色', 'red'],
-                    ['绿色', 'green'],
-                    ['蓝色', 'blue'],
-                    ['黄色', 'yellow'],
-                    ['橙色', 'orange'],
+                    [getBlockText('red'), 'red'],
+                    [getBlockText('green'), 'green'],
+                    [getBlockText('blue'), 'blue'],
+                    [getBlockText('yellow'), 'yellow'],
+                    [getBlockText('orange'), 'orange'],
                 ]), 'COLOR');
             this.setOutput(true, 'Boolean');
             this.setColour(210);
@@ -389,9 +516,9 @@ function defineBlocks() {
         init: function() {
             this.appendValueInput('CONDITION')
                 .setCheck('Boolean')
-                .appendField('如果');
+                .appendField(getBlockText('if_do'));
             this.appendStatementInput('DO')
-                .appendField('就');
+                .appendField(getBlockText('then_do'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(330);
@@ -403,9 +530,9 @@ function defineBlocks() {
         init: function() {
             this.appendValueInput('TIMES')
                 .setCheck('Number')
-                .appendField('重复执行');
+                .appendField(getBlockText('repeat_times'));
             this.appendStatementInput('DO')
-                .appendField('次');
+                .appendField(getBlockText('times'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(330);
@@ -417,8 +544,8 @@ function defineBlocks() {
         init: function() {
             this.appendValueInput('SECONDS')
                 .setCheck('Number')
-                .appendField('等待');
-            this.appendDummyInput().appendField('秒');
+                .appendField(getBlockText('wait'));
+            this.appendDummyInput().appendField(getBlockText('seconds'));
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(330);
@@ -847,87 +974,69 @@ function defineCodeGenerator() {
     console.log('代码生成器定义完成');
 }
 
-// ===== Socket.IO连接管理 =====
+// ===== WebSocket连接管理（原生WebSocket）=====
 function connectWebSocket() {
     if (state.ws) {
-        state.ws.disconnect();
+        if (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING) {
+            state.ws.close();
+        }
     }
 
-    console.log('连接到网关:', CONFIG.serverUrl);
-    state.ws = io(CONFIG.serverUrl, {
-        path: CONFIG.path,
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionDelay: CONFIG.reconnectInterval,
-    });
+    console.log('连接到网关:', CONFIG.wsUrl);
+
+    // 创建原生WebSocket连接
+    state.ws = new WebSocket(CONFIG.wsUrl);
 
     // 连接成功
-    state.ws.on('connect', () => {
-        console.log('Socket.IO已连接');
+    state.ws.onopen = () => {
+        console.log('WebSocket已连接');
         state.connected = true;
         updateConnectionStatus(true);
 
         // 发送客户端注册消息
-        state.ws.emit('client_register', {
-            client_id: generateClientId(),
+        send({
+            type: 'client_register',
+            data: { client_id: generateClientId() }
         });
-    });
+    };
 
-    // 连接事件（车载服务发送的连接确认）
-    state.ws.on('connected', (data) => {
-        console.log('收到连接确认:', data);
-    });
-
-    // 车辆列表更新（网关发送）
-    state.ws.on('vehicle_list', (data) => {
-        if (data.vehicles && data.vehicles.length > 0) {
-            updateVehicleList(data.vehicles);
+    // 收到消息
+    state.ws.onmessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            handleMessage(message);
+        } catch (e) {
+            console.error('解析消息失败:', e, event.data);
         }
-    });
+    };
 
-    // 执行状态更新
-    state.ws.on('execution_started', (data) => {
-        handleExecutionStarted(data);
-    });
-
-    state.ws.on('execution_finished', (data) => {
-        handleExecutionFinished(data);
-    });
-
-    state.ws.on('execution_error', (data) => {
-        handleExecutionError(data);
-    });
-
-    state.ws.on('error', (data) => {
-        showError(data.message || '发生错误');
-    });
-
-    // 传感器更新
-    state.ws.on('sensor_update', (data) => {
-        updateSensorDisplay(data.sensors);
-    });
-
-    // 断开连接
-    state.ws.on('disconnect', (reason) => {
-        console.log('Socket.IO已断开:', reason);
+    // 连接关闭
+    state.ws.onclose = (event) => {
+        console.log('WebSocket已断开:', event.code, event.reason);
         state.connected = false;
         updateConnectionStatus(false);
-    });
 
-    state.ws.on('connect_error', (error) => {
-        console.error('Socket.IO连接错误:', error);
-    });
+        // 自动重连
+        setTimeout(() => {
+            if (!state.connected) {
+                console.log('尝试重新连接...');
+                connectWebSocket();
+            }
+        }, CONFIG.reconnectInterval);
+    };
+
+    // 连接错误
+    state.ws.onerror = (error) => {
+        console.error('WebSocket错误:', error);
+    };
 }
 
 function send(message) {
     if (state.ws && state.connected) {
-        // 直接使用 Socket.IO 事件名
-        const eventName = message.type;
-        const payload = message.data || {};
-
-        state.ws.emit(eventName, payload);
+        const jsonStr = JSON.stringify(message);
+        state.ws.send(jsonStr);
     } else {
-        console.warn('Socket.IO未连接，无法发送消息');
+        console.warn('WebSocket未连接，无法发送消息');
     }
 }
 
@@ -1075,13 +1184,13 @@ function renderCourseList() {
         levelEl.className = 'course-level';
         levelEl.style.borderLeftColor = level.color;
 
-        // 级别头部
+        // 级别头部 - 应用翻译
         const levelHeader = document.createElement('div');
         levelHeader.className = 'course-level-header';
         levelHeader.innerHTML = `
             <span class="level-icon">${level.icon}</span>
-            <span class="level-name">${level.name}</span>
-            <span class="level-description">${level.description}</span>
+            <span class="level-name">${t(level.name)}</span>
+            <span class="level-description">${t(level.description)}</span>
             <span class="level-progress">
                 ${state.courseManager.getCompletedCount(level.id)}/${state.courseManager.getTotalCount(level.id)}
             </span>
@@ -1100,12 +1209,12 @@ function renderCourseList() {
 
             courseEl.innerHTML = `
                 <div class="course-item-header">
-                    <span class="course-title">${course.title}</span>
+                    <span class="course-title">${t(course.title)}</span>
                     ${isCompleted ? '<span class="course-badge completed">✓</span>' : ''}
                 </div>
                 <div class="course-item-info">
                     <span class="course-duration">⏱️ ${course.duration}</span>
-                    <span class="course-fun">${course.funText}</span>
+                    <span class="course-fun">${t(course.funText)}</span>
                 </div>
             `;
 
@@ -1136,28 +1245,28 @@ function selectCourse(course) {
 }
 
 function showCourseHint(course) {
-    document.getElementById('hint-title').textContent = `${course.title}`;
+    document.getElementById('hint-title').textContent = `${t(course.title)}`;
     document.getElementById('hint-duration').textContent = `⏱️ ${course.duration}`;
-    document.getElementById('hint-description').textContent = course.description;
-    document.getElementById('hint-fun-text').textContent = `🎉 ${course.funText}`;
-    document.getElementById('hint-expected').textContent = course.expected;
+    document.getElementById('hint-description').textContent = t(course.description);
+    document.getElementById('hint-fun-text').textContent = `🎉 ${t(course.funText)}`;
+    document.getElementById('hint-expected').textContent = t(course.expected);
 
-    // 积木列表
+    // 积木列表 - 应用翻译
     const blocksEl = document.getElementById('hint-blocks');
     blocksEl.innerHTML = '';
     course.blocks.forEach(block => {
         const blockTag = document.createElement('span');
         blockTag.className = 'block-tag';
-        blockTag.textContent = block;
+        blockTag.textContent = t(block);
         blocksEl.appendChild(blockTag);
     });
 
-    // 搭建步骤
+    // 搭建步骤 - 应用翻译
     const stepsEl = document.getElementById('hint-steps');
     stepsEl.innerHTML = '';
     course.hints.forEach(hint => {
         const li = document.createElement('li');
-        li.textContent = hint;
+        li.textContent = t(hint);
         stepsEl.appendChild(li);
     });
 
@@ -1186,8 +1295,53 @@ function toggleCoursePanel() {
     }
 }
 
+// ===== 语言切换功能 =====
+function toggleLanguage() {
+    languageManager.toggle();
+    refreshTranslations();
+    updateLanguageButton();
+
+    // 重新定义积木块（使用新语言）
+    defineBlocks();
+
+    // 更新Blockly工具箱和刷新工作区
+    if (state.workspace) {
+        // 保存当前工作区的XML
+        const xml = Blockly.Xml.workspaceToDom(state.workspace);
+        const xmlText = Blockly.Xml.domToText(xml);
+
+        // 更新工具箱
+        state.workspace.updateToolbox(getToolbox());
+
+        // 清除并重新加载工作区
+        state.workspace.clear();
+        const newXml = Blockly.Xml.textToDom(xmlText);
+        Blockly.Xml.domToWorkspace(newXml, state.workspace);
+    }
+
+    // 刷新课程列表以应用翻译
+    const panel = document.getElementById('course-panel');
+    if (!panel.classList.contains('hidden')) {
+        renderCourseList();
+    }
+}
+
+function updateLanguageButton() {
+    const btn = document.getElementById('btn-language');
+    if (languageManager.isPinyinMode) {
+        btn.textContent = '🔄 拼';
+        btn.title = '切换到汉字';
+    } else {
+        btn.textContent = '🔄 汉';
+        btn.title = '切换到拼音';
+    }
+}
+
 // ===== 事件处理 =====
 function setupEventListeners() {
+    // 语言切换按钮
+    document.getElementById('btn-language').addEventListener('click', toggleLanguage);
+
     // 课程按钮
     document.getElementById('btn-courses').addEventListener('click', toggleCoursePanel);
 
@@ -1292,6 +1446,10 @@ async function init() {
 
     // 设置事件监听
     setupEventListeners();
+
+    // 应用语言翻译
+    refreshTranslations();
+    updateLanguageButton();
 
     // 连接WebSocket
     connectWebSocket();

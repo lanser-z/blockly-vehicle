@@ -9,27 +9,30 @@
     <link rel="stylesheet" href="/css/themes.css">
     <!-- Blockly核心库 - 必须在主模块之前加载 -->
     <script src="https://unpkg.com/blockly/blockly.min.js"></script>
-    <!-- Socket.IO客户端库 -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- 原生WebSocket - 浏览器自带，无需额外库 -->
 </head>
 <body>
     <div id="app">
         <!-- 顶部导航栏 -->
         <header class="header">
-            <h1 class="title">🚗 小车编程</h1>
+            <h1 class="title">🚗 <span data-i18n="小车编程">小车编程</span></h1>
             <div class="header-controls">
+                <!-- 语言切换按钮 -->
+                <button id="btn-language" class="btn btn-language" title="切换拼音/汉字">
+                    🔄 拼
+                </button>
                 <!-- 课程按钮 -->
-                <button id="btn-courses" class="btn btn-secondary" title="选择课程">
+                <button id="btn-courses" class="btn btn-secondary" data-btn-emoji="📚 " data-i18n-btn="课程">
                     📚 课程
                 </button>
                 <!-- 车辆选择器 -->
                 <select id="vehicle-select" class="vehicle-select">
-                    <option value="">选择小车...</option>
+                    <option value="" data-i18n="选择小车...">选择小车...</option>
                 </select>
                 <!-- 连接状态 -->
                 <div id="connection-status" class="status-indicator offline">
                     <span class="status-dot"></span>
-                    <span class="status-text">未连接</span>
+                    <span class="status-text" data-i18n="未连接">未连接</span>
                 </div>
             </div>
         </header>
@@ -37,7 +40,7 @@
         <!-- 课程选择面板（默认隐藏） -->
         <div id="course-panel" class="course-panel hidden">
             <div class="course-panel-header">
-                <h2>📚 选择课程</h2>
+                <h2>📚 <span data-i18n="选择课程">选择课程</span></h2>
                 <button id="btn-close-courses" class="btn-close">&times;</button>
             </div>
             <div class="course-panel-body">
@@ -60,21 +63,21 @@
                     <span id="hint-fun-text"></span>
                 </div>
                 <div class="hint-blocks">
-                    <h4>需要用到的积木：</h4>
+                    <h4 data-i18n="需要用到的积木：">需要用到的积木：</h4>
                     <div id="hint-blocks" class="hint-blocks-list"></div>
                 </div>
                 <div class="hint-steps">
-                    <h4>搭建提示：</h4>
+                    <h4 data-i18n="搭建提示：">搭建提示：</h4>
                     <ol id="hint-steps" class="hint-steps-list"></ol>
                 </div>
                 <div class="hint-expected">
-                    <h4>预期效果：</h4>
+                    <h4 data-i18n="预期效果：">预期效果：</h4>
                     <p id="hint-expected"></p>
                 </div>
             </div>
             <div class="hint-footer">
-                <button id="btn-mark-complete" class="btn btn-success">✓ 完成课程</button>
-                <button id="btn-close-hint-panel" class="btn btn-secondary">关闭</button>
+                <button id="btn-mark-complete" class="btn btn-success" data-btn-emoji="✓ " data-i18n-btn="完成课程">✓ 完成课程</button>
+                <button id="btn-close-hint-panel" class="btn btn-secondary" data-i18n-btn="关闭">关闭</button>
             </div>
         </div>
 
@@ -89,24 +92,24 @@
             <div class="control-panel">
                 <!-- 当前课程提示 -->
                 <div id="current-course-hint" class="control-group hidden">
-                    <h3>📖 当前课程</h3>
+                    <h3>📖 <span data-i18n="当前课程">当前课程</span></h3>
                     <div class="current-course-info">
                         <span id="current-course-title" class="current-course-title"></span>
-                        <button id="btn-show-hint" class="btn btn-small">查看提示</button>
+                        <button id="btn-show-hint" class="btn btn-small" data-i18n-btn="查看提示">查看提示</button>
                     </div>
                 </div>
 
                 <!-- 运行控制 -->
                 <div class="control-group">
-                    <h3>运行控制</h3>
+                    <h3 data-i18n="运行控制">运行控制</h3>
                     <div class="button-group">
-                        <button id="btn-run" class="btn btn-success" disabled>
+                        <button id="btn-run" class="btn btn-success" disabled data-btn-emoji="▶ " data-i18n-btn="运行">
                             ▶ 运行
                         </button>
-                        <button id="btn-stop" class="btn btn-danger" disabled>
+                        <button id="btn-stop" class="btn btn-danger" disabled data-btn-emoji="⏹ " data-i18n-btn="停止">
                             ⏹ 停止
                         </button>
-                        <button id="btn-emergency" class="btn btn-warning" disabled>
+                        <button id="btn-emergency" class="btn btn-warning" disabled data-btn-emoji="🛑 " data-i18n-btn="紧急停止">
                             🛑 紧急停止
                         </button>
                     </div>
@@ -114,25 +117,25 @@
 
                 <!-- 代码预览 -->
                 <div class="control-group">
-                    <h3>生成的代码</h3>
+                    <h3 data-i18n="生成的代码">生成的代码</h3>
                     <pre id="code-preview" class="code-preview"></pre>
                 </div>
 
                 <!-- 传感器状态 -->
                 <div class="control-group">
-                    <h3>传感器状态</h3>
+                    <h3 data-i18n="传感器状态">传感器状态</h3>
                     <div class="sensor-display">
                         <div class="sensor-item">
-                            <span class="sensor-label">超声波:</span>
+                            <span class="sensor-label" data-i18n="超声波:">超声波:</span>
                             <span id="sensor-ultrasonic" class="sensor-value">--</span>
                             <span class="sensor-unit">mm</span>
                         </div>
                         <div class="sensor-item">
-                            <span class="sensor-label">巡线:</span>
+                            <span class="sensor-label" data-i18n="巡线:">巡线:</span>
                             <span id="sensor-line" class="sensor-value">--</span>
                         </div>
                         <div class="sensor-item">
-                            <span class="sensor-label">电池:</span>
+                            <span class="sensor-label" data-i18n="电池:">电池:</span>
                             <span id="sensor-battery" class="sensor-value">--</span>
                             <span class="sensor-unit">V</span>
                         </div>
@@ -141,9 +144,10 @@
 
                 <!-- 摄像头预览 -->
                 <div class="control-group">
-                    <h3>摄像头</h3>
+                    <h3 data-i18n="摄像头">摄像头</h3>
                     <img id="camera-preview" class="camera-preview"
                          src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240'%3E%3Crect fill='%23ccc' width='320' height='240'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23666'%3E摄像头未连接%3C/text%3E%3C/svg%3E"
+                         data-alt-i18n="摄像头预览"
                          alt="摄像头预览">
                 </div>
             </div>
@@ -151,7 +155,7 @@
 
         <!-- 底部状态栏 -->
         <footer class="footer">
-            <span id="status-message">欢迎使用Blockly小车编程！</span>
+            <span id="status-message" data-i18n="欢迎使用Blockly小车编程！">欢迎使用Blockly小车编程！</span>
         </footer>
     </div>
 
