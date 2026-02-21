@@ -1090,11 +1090,11 @@ function updateConnectionStatus(connected) {
 
     if (connected) {
         statusEl.className = 'status-indicator online';
-        statusText.textContent = '已连接';
+        statusText.textContent = t('已连接');
         enableControls(true);
     } else {
         statusEl.className = 'status-indicator offline';
-        statusText.textContent = '未连接';
+        statusText.textContent = t('未连接');
         enableControls(false);
     }
 }
@@ -1102,12 +1102,13 @@ function updateConnectionStatus(connected) {
 function updateVehicleList(vehicles) {
     state.vehicles = vehicles;
     const select = document.getElementById('vehicle-select');
-    select.innerHTML = '<option value="">选择小车...</option>';
+    select.innerHTML = `<option value="">${t('选择小车...')}</option>`;
 
     vehicles.forEach((vehicle) => {
         const option = document.createElement('option');
         option.value = vehicle.vehicle_id;
-        option.textContent = `${vehicle.name} (${vehicle.online ? '在线' : '离线'})`;
+        const status = vehicle.online ? t('在线') : t('离线');
+        option.textContent = `${vehicle.name} (${status})`;
         option.disabled = !vehicle.online;
         select.appendChild(option);
     });

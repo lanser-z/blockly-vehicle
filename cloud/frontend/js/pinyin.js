@@ -6,6 +6,8 @@ export const PINYIN_TRANSLATIONS = {
     '选择小车...': 'xuǎn zé xiǎo chē...',
     '未连接': 'wèi lián jiē',
     '已连接': 'yǐ lián jiē',
+    '在线': 'zài xiàn',
+    '离线': 'lí xiàn',
 
     // ===== 课程系统 =====
     '选择课程': 'xuǎn zé kè chéng',
