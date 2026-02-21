@@ -3,8 +3,10 @@
 ## 1. 概述
 
 本文档定义了Blockly少儿编程小车系统的通信协议，采用**云端+车载双层架构**：
-- **前端 ↔ 云端**: HTTPS/WebSocket（浏览器到lanser.fun）
-- **云端 ↔ 车载**: WebSocket长连接（lanser.fun到Raspberry Pi）
+- **前端 ↔ 云端**: 原生WebSocket（浏览器到lanser.fun）
+- **云端 ↔ 车载**: 原生WebSocket长连接（lanser.fun到Raspberry Pi）
+
+> **协议说明**: 本系统使用**原生WebSocket协议**，而非Socket.IO。云端网关使用`gorilla/websocket`（Go），车载客户端使用`websocket-client`（Python）。
 
 ---
 

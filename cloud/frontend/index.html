@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/blocks.css">
     <link rel="stylesheet" href="/css/themes.css">
+    <!-- Blockly核心库 - 必须在主模块之前加载 -->
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    <!-- Socket.IO客户端库 -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -14,6 +18,10 @@
         <header class="header">
             <h1 class="title">🚗 小车编程</h1>
             <div class="header-controls">
+                <!-- 课程按钮 -->
+                <button id="btn-courses" class="btn btn-secondary" title="选择课程">
+                    📚 课程
+                </button>
                 <!-- 车辆选择器 -->
                 <select id="vehicle-select" class="vehicle-select">
                     <option value="">选择小车...</option>
@@ -26,6 +34,50 @@
             </div>
         </header>
 
+        <!-- 课程选择面板（默认隐藏） -->
+        <div id="course-panel" class="course-panel hidden">
+            <div class="course-panel-header">
+                <h2>📚 选择课程</h2>
+                <button id="btn-close-courses" class="btn-close">&times;</button>
+            </div>
+            <div class="course-panel-body">
+                <div id="course-list" class="course-list"></div>
+            </div>
+        </div>
+
+        <!-- 课程提示面板 -->
+        <div id="course-hint-panel" class="course-hint-panel hidden">
+            <div class="hint-header">
+                <h3 id="hint-title"></h3>
+                <span id="hint-duration" class="hint-duration"></span>
+                <button id="btn-close-hint" class="btn-close">&times;</button>
+            </div>
+            <div class="hint-body">
+                <div class="hint-description">
+                    <p id="hint-description"></p>
+                </div>
+                <div class="hint-fun">
+                    <span id="hint-fun-text"></span>
+                </div>
+                <div class="hint-blocks">
+                    <h4>需要用到的积木：</h4>
+                    <div id="hint-blocks" class="hint-blocks-list"></div>
+                </div>
+                <div class="hint-steps">
+                    <h4>搭建提示：</h4>
+                    <ol id="hint-steps" class="hint-steps-list"></ol>
+                </div>
+                <div class="hint-expected">
+                    <h4>预期效果：</h4>
+                    <p id="hint-expected"></p>
+                </div>
+            </div>
+            <div class="hint-footer">
+                <button id="btn-mark-complete" class="btn btn-success">✓ 完成课程</button>
+                <button id="btn-close-hint-panel" class="btn btn-secondary">关闭</button>
+            </div>
+        </div>
+
         <!-- 主内容区 -->
         <div class="main-container">
             <!-- 左侧：Blockly工作区 -->
@@ -35,6 +87,15 @@
 
             <!-- 右侧：控制面板 -->
             <div class="control-panel">
+                <!-- 当前课程提示 -->
+                <div id="current-course-hint" class="control-group hidden">
+                    <h3>📖 当前课程</h3>
+                    <div class="current-course-info">
+                        <span id="current-course-title" class="current-course-title"></span>
+                        <button id="btn-show-hint" class="btn btn-small">查看提示</button>
+                    </div>
+                </div>
+
                 <!-- 运行控制 -->
                 <div class="control-group">
                     <h3>运行控制</h3>
@@ -93,9 +154,6 @@
             <span id="status-message">欢迎使用Blockly小车编程！</span>
         </footer>
     </div>
-
-    <!-- Blockly核心库 -->
-    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
 
     <!-- 自定义脚本 -->
     <script type="module" src="/js/main.js"></script>

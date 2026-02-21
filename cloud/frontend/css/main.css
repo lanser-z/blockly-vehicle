@@ -271,3 +271,340 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* ===== 课程选择面板 ===== */
+.course-panel {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.course-panel.hidden {
+    display: none;
+}
+
+.course-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+}
+
+.course-panel-header h2 {
+    font-size: 20px;
+    margin: 0;
+}
+
+.course-panel-body {
+    background: white;
+    max-width: 800px;
+    width: 100%;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    border-radius: 0 0 12px 12px;
+}
+
+.course-list {
+    padding: 20px;
+}
+
+/* 课程级别 */
+.course-level {
+    margin-bottom: 25px;
+    border-left: 4px solid #ccc;
+    border-radius: 0 8px 8px 0;
+    overflow: hidden;
+}
+
+.course-level-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background-color: #f5f5f5;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.course-level-header:hover {
+    background-color: #eee;
+}
+
+.level-icon {
+    font-size: 24px;
+}
+
+.level-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.level-description {
+    flex: 1;
+    font-size: 14px;
+    color: #666;
+}
+
+.level-progress {
+    font-size: 14px;
+    color: var(--color-primary);
+    font-weight: bold;
+}
+
+/* 级别下的课程列表 */
+.course-level-courses {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 15px;
+    background-color: #fafafa;
+}
+
+/* 课程项 */
+.course-item {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.course-item:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(76, 151, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.course-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.course-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #333;
+}
+
+.course-badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.course-badge.completed {
+    background-color: var(--color-success);
+    color: white;
+}
+
+.course-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.course-duration {
+    font-size: 13px;
+    color: #666;
+}
+
+.course-fun {
+    font-size: 13px;
+    color: var(--color-primary);
+}
+
+/* ===== 课程提示面板 ===== */
+.course-hint-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    z-index: 1001;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.course-hint-panel.hidden {
+    display: none;
+}
+
+.hint-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border-radius: 16px 16px 0 0;
+}
+
+.hint-header h3 {
+    flex: 1;
+    font-size: 18px;
+    margin: 0;
+}
+
+.hint-duration {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    font-size: 13px;
+}
+
+.hint-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.hint-description {
+    background-color: #f0f7ff;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border-left: 4px solid var(--color-primary);
+}
+
+.hint-description p {
+    margin: 0;
+    font-size: 14px;
+    color: #333;
+    line-height: 1.6;
+}
+
+.hint-fun {
+    text-align: center;
+    padding: 12px;
+    margin-bottom: 15px;
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #e65100;
+}
+
+.hint-blocks h4,
+.hint-steps h4,
+.hint-expected h4 {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.hint-blocks-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.block-tag {
+    padding: 4px 10px;
+    background-color: #e3f2fd;
+    color: var(--color-primary);
+    border-radius: 12px;
+    font-size: 13px;
+}
+
+.hint-steps-list {
+    padding-left: 20px;
+    margin-bottom: 15px;
+}
+
+.hint-steps-list li {
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #333;
+    line-height: 1.5;
+}
+
+.hint-expected {
+    background-color: #e8f5e9;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.hint-expected p {
+    margin: 0;
+    font-size: 14px;
+    color: #2e7d32;
+}
+
+.hint-footer {
+    display: flex;
+    gap: 10px;
+    padding: 15px 20px;
+    border-top: 1px solid #eee;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: white;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.btn-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary {
+    background-color: #757575;
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: #616161;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* 当前课程提示 */
+.current-course-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.current-course-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--color-primary);
+}

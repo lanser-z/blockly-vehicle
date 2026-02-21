@@ -2,16 +2,16 @@
 车载服务云端连接管理器
 
 功能：
-1. 主动连接到云端网关
+1. 主动连接到云端网关（使用原生WebSocket客户端）
 2. 心跳保活
-3. 断线重连（指数退避）
+3. 断线重连（自动处理）
 4. 消息发送和接收
 """
 
 import json
 import logging
-import threading
 import time
+import threading
 import websocket
 from typing import Callable, Dict, Optional
 
@@ -24,15 +24,31 @@ logger = logging.getLogger(__name__)
 
 
 class VehicleConnectionManager:
-    """车载服务云端连接管理器"""
+    """车载服务云端连接管理器（WebSocket 客户端）"""
 
     def __init__(self, cloud_url: str, vehicle_id: str):
+        # 解析云端 URL
+        # 支持格式: wss://lanser.fun/block/ws/gateway 或 https://lanser.fun
         self.cloud_url = cloud_url
         self.vehicle_id = vehicle_id
-        self.ws: Optional[websocket.WebSocketApp] = None
         self.running = False
-        self.reconnect_delay = 1
-        self.max_delay = 60
+        self.ws: Optional[websocket.WebSocketApp] = None
+        self._thread: Optional[threading.Thread] = None
+
+        # 规范化URL为WebSocket连接地址
+        # 如果URL包含 /block/ws/gateway，直接使用
+        # 否则需要构造完整路径
+        if '/block/ws/gateway' in cloud_url or '/ws/gateway' in cloud_url:
+            # 已经是完整路径
+            self.ws_url = cloud_url.replace('https://', 'wss://').replace('http://', 'ws://')
+        elif '/block' in cloud_url:
+            # 有 /block 前缀，需要添加 /ws/gateway
+            base = cloud_url.split('/block')[0].replace('https://', 'wss://').replace('http://', 'ws://')
+            self.ws_url = f"{base}/block/ws/gateway"
+        else:
+            # 纯域名，添加完整路径
+            base = cloud_url.replace('https://', 'wss://').replace('http://', 'ws://')
+            self.ws_url = f"{base}/block/ws/gateway"
 
         # 消息处理器
         self.message_handlers: Dict[str, Callable] = {}
@@ -41,9 +57,6 @@ class VehicleConnectionManager:
         self.on_connect_cb: Optional[Callable] = None
         self.on_disconnect_cb: Optional[Callable] = None
         self.on_error_cb: Optional[Callable] = None
-
-        # 消息接收线程
-        self._receive_thread: Optional[threading.Thread] = None
 
     def register_handler(self, msg_type: str, handler: Callable):
         """注册消息处理器"""
@@ -58,92 +71,88 @@ class VehicleConnectionManager:
         self.on_disconnect_cb = on_disconnect
         self.on_error_cb = on_error
 
-    def connect(self) -> threading.Thread:
-        """连接到云端（在独立线程中运行）"""
-        thread = threading.Thread(target=self._connect_loop, daemon=True)
-        thread.start()
-        return thread
+    def connect(self) -> websocket.WebSocketApp:
+        """连接到云端"""
+        logger.info(f"正在连接到云端: {self.ws_url}")
 
-    def _connect_loop(self):
-        """连接循环（带重连）"""
-        while True:
+        def on_open(ws):
+            """连接建立回调"""
+            logger.info(f"WebSocket连接已建立 (vehicle_id: {self.vehicle_id})")
+            self.running = True
+
+            # 发送注册消息
+            self._send_register()
+
+            # 调用连接回调
+            if self.on_connect_cb:
+                self.on_connect_cb()
+
+        def on_message(ws, message):
+            """接收消息回调"""
             try:
-                logger.info(f"正在连接到云端: {self.cloud_url}")
+                data = json.loads(message)
+                msg_type = data.get('type') if isinstance(data, dict) else message
+                logger.debug(f"收到消息: {msg_type}")
 
-                # 创建WebSocket连接
-                self.ws = websocket.WebSocketApp(
-                    self.cloud_url,
-                    header={"X-Vehicle-ID": self.vehicle_id},
-                    on_open=self._on_open,
-                    on_message=self._on_message,
-                    on_error=self._on_error,
-                    on_close=self._on_close
-                )
+                # 调用对应的处理器
+                handler = self.message_handlers.get(msg_type)
+                if handler:
+                    handler(data if isinstance(data, dict) else {'type': msg_type})
+                else:
+                    logger.warning(f"未知消息类型: {msg_type}")
 
-                # 运行WebSocket（阻塞直到断开）
-                self.ws.run_forever()
-
+            except json.JSONDecodeError:
+                logger.warning(f"收到非JSON消息: {message}")
+                # 尝试作为原始类型处理
+                handler = self.message_handlers.get(message)
+                if handler:
+                    handler({'type': message})
             except Exception as e:
-                logger.error(f"连接异常: {e}")
+                logger.error(f"处理消息失败: {e}")
 
-            # 连接断开后处理
+        def on_error(ws, error):
+            """连接错误回调"""
+            logger.error(f"WebSocket错误: {error}")
+            if self.on_error_cb:
+                self.on_error_cb(error)
+
+        def on_close(ws, close_status_code, close_msg):
+            """连接关闭回调"""
+            logger.info(f"WebSocket连接已关闭: {close_status_code} - {close_msg}")
             self.running = False
 
             # 调用断开回调
             if self.on_disconnect_cb:
                 self.on_disconnect_cb()
 
-            # 指数退避重连
-            logger.info(f"{self.reconnect_delay}秒后重连...")
-            time.sleep(self.reconnect_delay)
-            self.reconnect_delay = min(self.reconnect_delay * 2, self.max_delay)
+        # 创建WebSocket客户端
+        self.ws = websocket.WebSocketApp(
+            self.ws_url,
+            on_open=on_open,
+            on_message=on_message,
+            on_error=on_error,
+            on_close=on_close,
+            header={'X-Vehicle-ID': self.vehicle_id}
+        )
 
-    def _on_open(self, ws):
-        """连接成功回调"""
-        logger.info(f"已连接到云端服务 (vehicle_id: {self.vehicle_id})")
-        self.running = True
-        self.reconnect_delay = 1  # 重置重连延迟
+        # 在新线程中运行WebSocket（保持连接活跃）
+        def run_websocket():
+            """运行WebSocket（阻塞）"""
+            try:
+                # 启用ping/pong保活
+                self.ws.run_forever(
+                    ping_interval=30,  # 每30秒发送ping
+                    ping_timeout=10,   # ping超时10秒
+                )
+            except Exception as e:
+                logger.error(f"WebSocket运行异常: {e}")
+                if self.on_error_cb:
+                    self.on_error_cb(e)
 
-        # 发送注册消息
-        self._send_register()
+        self._thread = threading.Thread(target=run_websocket, daemon=True)
+        self._thread.start()
 
-        # 启动心跳线程
-        threading.Thread(target=self._heartbeat_loop, daemon=True).start()
-
-        # 调用连接回调
-        if self.on_connect_cb:
-            self.on_connect_cb()
-
-    def _on_message(self, ws, message):
-        """接收消息回调"""
-        try:
-            data = json.loads(message)
-            msg_type = data.get('type')
-
-            logger.debug(f"收到消息: {msg_type}")
-
-            # 调用对应的处理器
-            handler = self.message_handlers.get(msg_type)
-            if handler:
-                handler(data)
-            else:
-                logger.warning(f"未知消息类型: {msg_type}")
-
-        except Exception as e:
-            logger.error(f"处理消息失败: {e}")
-
-    def _on_error(self, ws, error):
-        """错误回调"""
-        logger.error(f"WebSocket错误: {error}")
-
-        # 调用错误回调
-        if self.on_error_cb:
-            self.on_error_cb(error)
-
-    def _on_close(self, ws, close_status_code, close_msg):
-        """关闭回调"""
-        logger.info(f"云端连接已关闭: {close_status_code} - {close_msg}")
-        self.running = False
+        return self.ws
 
     def _send_register(self):
         """发送注册消息"""
@@ -151,36 +160,32 @@ class VehicleConnectionManager:
             "type": "register",
             "data": {
                 "vehicle_id": self.vehicle_id,
-                "name": f"小车{self.vehicle_id.split('-')[1]}",
+                "name": f"小车{self.vehicle_id.split('-')[1] if '-' in self.vehicle_id else '001'}",
                 "capabilities": {
                     "motion": True,
-                    "sensors": ["ultrasonic", "infrared", "battery"],
+                    "sensors": ["ultrasonic", "infrared", "line", "battery"],
                     "vision": True
                 }
             }
         })
 
-    def _heartbeat_loop(self):
-        """心跳循环"""
-        while self.running:
-            try:
-                self.send_heartbeat()
-                time.sleep(30)  # 每30秒发送一次心跳
-            except Exception as e:
-                logger.error(f"心跳发送失败: {e}")
-                break
-
     def send(self, message: dict):
         """发送消息到云端"""
         if self.ws and self.running:
-            message['vehicle_id'] = self.vehicle_id
-            message['timestamp'] = int(time.time())
+            # 添加必要字段
+            if 'vehicle_id' not in message:
+                message['vehicle_id'] = self.vehicle_id
+            if 'timestamp' not in message:
+                message['timestamp'] = int(time.time())
 
             try:
-                self.ws.send(json.dumps(message))
+                json_msg = json.dumps(message)
+                self.ws.send(json_msg)
                 logger.debug(f"发送消息: {message.get('type')}")
             except Exception as e:
                 logger.error(f"发送消息失败: {e}")
+        else:
+            logger.warning('未连接到云端，无法发送消息')
 
     def send_heartbeat(self):
         """发送心跳"""
@@ -198,13 +203,27 @@ class VehicleConnectionManager:
             }
         })
 
-    def send_execution_finished(self, execution_id: str, success: bool = True):
+    def send_execution_finished(self, execution_id: str, success: bool = True, output=None, error=None):
         """发送执行完成事件"""
-        self.send({
+        data = {
             "type": "execution_finished",
             "data": {
                 "execution_id": execution_id,
                 "success": success
+            }
+        }
+        if output is not None:
+            data['data']['output'] = output
+        if error is not None:
+            data['data']['error'] = error
+        self.send(data)
+
+    def send_execution_stopped(self, execution_id: str):
+        """发送执行停止事件"""
+        self.send({
+            "type": "execution_stopped",
+            "data": {
+                "execution_id": execution_id
             }
         })
 
@@ -216,6 +235,13 @@ class VehicleConnectionManager:
                 "execution_id": execution_id,
                 "error": error
             }
+        })
+
+    def send_emergency_stop(self):
+        """发送紧急停止事件"""
+        self.send({
+            "type": "emergency_stop",
+            "data": {}
         })
 
     def send_sensor_update(self, sensors: dict):
@@ -238,7 +264,13 @@ class VehicleConnectionManager:
 
     def is_connected(self) -> bool:
         """检查是否已连接"""
-        return self.running
+        return self.running and self.ws is not None
+
+    def disconnect(self):
+        """断开连接"""
+        if self.ws:
+            self.running = False
+            self.ws.close()
 
 
 # ===== 全局连接管理器实例 =====
