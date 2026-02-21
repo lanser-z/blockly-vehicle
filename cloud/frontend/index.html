@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockly少儿编程小车</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/blocks.css">
+    <link rel="stylesheet" href="/css/themes.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 顶部导航栏 -->
+        <header class="header">
+            <h1 class="title">🚗 小车编程</h1>
+            <div class="header-controls">
+                <!-- 车辆选择器 -->
+                <select id="vehicle-select" class="vehicle-select">
+                    <option value="">选择小车...</option>
+                </select>
+                <!-- 连接状态 -->
+                <div id="connection-status" class="status-indicator offline">
+                    <span class="status-dot"></span>
+                    <span class="status-text">未连接</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <div class="main-container">
+            <!-- 左侧：Blockly工作区 -->
+            <div class="workspace-container">
+                <div id="blockly-div" class="blockly-workspace"></div>
+            </div>
+
+            <!-- 右侧：控制面板 -->
+            <div class="control-panel">
+                <!-- 运行控制 -->
+                <div class="control-group">
+                    <h3>运行控制</h3>
+                    <div class="button-group">
+                        <button id="btn-run" class="btn btn-success" disabled>
+                            ▶ 运行
+                        </button>
+                        <button id="btn-stop" class="btn btn-danger" disabled>
+                            ⏹ 停止
+                        </button>
+                        <button id="btn-emergency" class="btn btn-warning" disabled>
+                            🛑 紧急停止
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 代码预览 -->
+                <div class="control-group">
+                    <h3>生成的代码</h3>
+                    <pre id="code-preview" class="code-preview"></pre>
+                </div>
+
+                <!-- 传感器状态 -->
+                <div class="control-group">
+                    <h3>传感器状态</h3>
+                    <div class="sensor-display">
+                        <div class="sensor-item">
+                            <span class="sensor-label">超声波:</span>
+                            <span id="sensor-ultrasonic" class="sensor-value">--</span>
+                            <span class="sensor-unit">mm</span>
+                        </div>
+                        <div class="sensor-item">
+                            <span class="sensor-label">巡线:</span>
+                            <span id="sensor-line" class="sensor-value">--</span>
+                        </div>
+                        <div class="sensor-item">
+                            <span class="sensor-label">电池:</span>
+                            <span id="sensor-battery" class="sensor-value">--</span>
+                            <span class="sensor-unit">V</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 摄像头预览 -->
+                <div class="control-group">
+                    <h3>摄像头</h3>
+                    <img id="camera-preview" class="camera-preview"
+                         src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240'%3E%3Crect fill='%23ccc' width='320' height='240'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23666'%3E摄像头未连接%3C/text%3E%3C/svg%3E"
+                         alt="摄像头预览">
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <footer class="footer">
+            <span id="status-message">欢迎使用Blockly小车编程！</span>
+        </footer>
+    </div>
+
+    <!-- Blockly核心库 -->
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+
+    <!-- 自定义脚本 -->
+    <script type="module" src="/js/main.js"></script>
+</body>
+</html>

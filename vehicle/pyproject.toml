@@ -1,0 +1,33 @@
+[project]
+name = "blockly-vehicle"
+version = "1.0.0"
+description = "Blockly小车车载服务"
+requires-python = ">=3.9"
+dependencies = [
+    "Flask==3.0.0",
+    "Flask-CORS==4.0.0",
+    "Flask-SocketIO==5.3.6",
+    "eventlet==0.33.3",
+    "python-socketio==5.11.0",
+    "gunicorn==21.2.0",
+    "RestrictedPython==7.0",
+    "opencv-python>=4.8.0,<5.0.0",
+    "pyyaml==6.0.1",
+    "requests==2.31.0",
+    "websocket-client==1.7.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "pylint>=3.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

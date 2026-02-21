@@ -1,0 +1,21 @@
+{
+  "name": "blockly-vehicle-frontend",
+  "version": "1.0.0",
+  "description": "Blockly少儿编程小车 - 前端",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "eslint js/"
+  },
+  "dependencies": {
+    "blockly": "^11.0.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.55.0"
+  }
+}
