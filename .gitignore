@@ -1,0 +1,44 @@
+# 编译产物
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go编译缓存
+*.test
+*.out
+go.sum
+
+# 依赖目录
+vendor/
+.venv/
+__pycache__/
+*.pyc
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日志文件
+*.log
+
+# 临时文件
+.tmp/
+tmp/
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 前端构建产物
+node_modules/
+dist/
+package-lock.json
+
+# 测试覆盖率
+coverage.txt
+*.cover
