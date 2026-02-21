@@ -5,10 +5,6 @@ VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 
-# Go编译参数
-CGO_ENABLED=0
-GOFLAGS=-trimpath
-
 .PHONY: all build clean test run deps install deploy
 
 all: build
@@ -20,11 +16,11 @@ deps:
 
 ## build: 编译二进制文件
 build:
-	CGO_ENABLED=0 $(GOFLAGS) go build $(LDFLAGS) -o bin/$(APP_NAME) cmd/gateway/main.go
+	CGO_ENABLED=0 go build -trimpath $(LDFLAGS) -o bin/$(APP_NAME) cmd/gateway/main.go
 
 ## build-linux: 交叉编译到Linux
 build-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOFLAGS) go build $(LDFLAGS) -o bin/$(APP_NAME)-linux-amd64 cmd/gateway/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath $(LDFLAGS) -o bin/$(APP_NAME)-linux-amd64 cmd/gateway/main.go
 
 ## build-all: 编译所有平台
 build-all: build-linux
