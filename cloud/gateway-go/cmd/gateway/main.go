@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 
+	"blockly-gateway/internal/config"
 	gatewayhttp "blockly-gateway/api/http"
 	"blockly-gateway/internal/handler"
 	"blockly-gateway/internal/message"
@@ -26,20 +27,45 @@ var (
 )
 
 func main() {
+	// 加载配置文件
+	configPath := "configs/config.yaml"
+	if envPath := os.Getenv("GATEWAY_CONFIG"); envPath != "" {
+		configPath = envPath
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		logger.Fatalf("加载配置失败: %v", err)
+	}
+
 	// 设置日志
 	logger.SetFormatter(&logrus.JSONFormatter{})
-	logger.SetLevel(logrus.InfoLevel)
+	if cfg.Log.Format == "text" {
+		logger.SetFormatter(&logrus.TextFormatter{})
+	}
+
+	// 设置日志级别
+	switch cfg.Log.Level {
+	case "debug":
+		logger.SetLevel(logrus.DebugLevel)
+	case "info":
+		logger.SetLevel(logrus.InfoLevel)
+	case "warn":
+		logger.SetLevel(logrus.WarnLevel)
+	case "error":
+		logger.SetLevel(logrus.ErrorLevel)
+	default:
+		logger.SetLevel(logrus.InfoLevel)
+	}
 
 	// 设置连接池日志
 	pool.SetLogger(logger)
 
 	logger.Infof("Blockly云端网关服务启动中... version=%s build_time=%s", Version, BuildTime)
+	logger.Infof("配置加载成功: %s", configPath)
 
 	// 创建连接池
-	heartbeatInterval := 30 * time.Second
-	heartbeatTimeout := 60 * time.Second
-
-	connectionPool := pool.NewPool(heartbeatInterval, heartbeatTimeout)
+	connectionPool := pool.NewPool(cfg.GetHeartbeatInterval(), cfg.GetHeartbeatTimeout())
 
 	// 设置车辆列表变化回调
 	connectionPool.SetVehicleListCallback(func(vehicles []message.VehicleInfo) {
@@ -78,7 +104,7 @@ func main() {
 	router.GET("/ws/gateway", wsHandler.HandleWebSocket)
 
 	// 创建HTTP服务器
-	addr := "127.0.0.1:5001"
+	addr := cfg.GetAddr()
 	srv := &stdhttp.Server{
 		Addr:    addr,
 		Handler: router,
