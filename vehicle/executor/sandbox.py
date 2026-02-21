@@ -110,6 +110,8 @@ class SandboxGlobals:
         motion_funcs = [
             'qianjin', 'houtui', 'zuopingyi', 'youpingyi',
             'xuanzhuan', 'fxuanzhuan', 'tingzhi',
+            'xiaozuozhuan', 'xiaoyouzhuan',  # 新增：左右转弯
+            'dengdai',  # 新增：等待函数
             'yidong_angle', 'yidong_xy',
             'set_servo', 'reset_servos'
         ]
@@ -121,8 +123,18 @@ class SandboxGlobals:
             'dianchi'
         ]
 
+        # 云台控制函数
+        gimbal_funcs = [
+            'shang', 'xia', 'zuo', 'you', 'fuwei'
+        ]
+
+        # 视觉函数
+        vision_funcs = [
+            'shibieyanse'
+        ]
+
         # 导入函数
-        for func_name in motion_funcs + sensor_funcs:
+        for func_name in motion_funcs + sensor_funcs + gimbal_funcs + vision_funcs:
             if hasattr(hal_module, func_name):
                 self._globals[func_name] = getattr(hal_module, func_name)
 
@@ -130,6 +142,12 @@ class SandboxGlobals:
         self._globals['停止'] = self._globals.get('tingzhi')
         self._globals['前进'] = self._globals.get('qianjin')
         self._globals['后退'] = self._globals.get('houtui')
+
+        # 导入 random 和 math 模块（用于 Blockly 内置积木）
+        import random
+        import math
+        self._globals['random'] = random
+        self._globals['math'] = math
 
     def get_globals(self) -> Dict[str, Any]:
         """获取全局变量字典"""

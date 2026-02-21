@@ -7,7 +7,7 @@
 import logging
 import os
 import sys
-from typing import List, Optional
+from typing import List
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -18,41 +18,25 @@ if os.path.exists(TURBOPI_PATH):
     sys.path.insert(0, TURBOPI_PATH)
     sys.path.insert(0, os.path.join(TURBOPI_PATH, 'HiwonderSDK'))
 
-# MOCK_HARDWARE模式 - 开发时不需要真实硬件
-MOCK_HARDWARE = os.getenv('MOCK_HARDWARE', 'false').lower() == 'true'
-
-if not MOCK_HARDWARE:
-    try:
-        import HiwonderSDK.Sonar as Sonar
-        import HiwonderSDK.FourInfrared as FourInfrared
-        import HiwonderSDK.Board as Board
-        HARDWARE_AVAILABLE = True
-        logger.info("硬件传感器SDK加载成功")
-    except ImportError as e:
-        logger.warning(f"硬件传感器SDK加载失败: {e}")
-        logger.warning("使用模拟模式")
-        HARDWARE_AVAILABLE = False
-        MOCK_HARDWARE = True
-else:
-    HARDWARE_AVAILABLE = False
-    logger.info("使用模拟传感器模式")
+# 导入硬件SDK - 必须成功，否则服务无法运行
+try:
+    import HiwonderSDK.Sonar as Sonar
+    import HiwonderSDK.FourInfrared as FourInfrared
+    import HiwonderSDK.Board as Board
+    HARDWARE_AVAILABLE = True
+    logger.info("硬件传感器SDK加载成功")
+except Exception as e:
+    logger.error(f"硬件传感器SDK加载失败: {e}")
+    raise RuntimeError(f"硬件传感器SDK加载失败: {e}") from e
 
 
 class SensorController:
     """传感器控制器"""
 
     def __init__(self):
-        if HARDWARE_AVAILABLE:
-            self.sonar = Sonar.Sonar()
-            self.infrared = FourInfrared.FourInfrared()
-        else:
-            self.sonar = None
-            self.infrared = None
-            # 模拟数据
-            self._mock_distance = 300  # 模拟距离(mm)
-            self._mock_line = [False, True, True, False]  # 模拟巡线状态
-            self._mock_battery = 75  # 模拟电量(%)
-            logger.info("传感器控制器: 模拟模式")
+        self.sonar = Sonar.Sonar()
+        self.infrared = FourInfrared.FourInfrared()
+        logger.info("传感器控制器初始化完成")
 
     # ===== 超声波传感器 =====
 
@@ -62,17 +46,9 @@ class SensorController:
         Returns:
             int: 距离值，单位毫米，范围0-5000
         """
-        if HARDWARE_AVAILABLE:
-            distance = self.sonar.getDistance()
-            logger.debug(f"超声波距离: {distance}mm")
-            return distance
-        else:
-            # 模拟模式 - 返回变化的距离值
-            import random
-            variation = random.randint(-20, 20)
-            self._mock_distance = max(50, min(500, self._mock_distance + variation))
-            logger.info(f"  [模拟] 超声波距离: {self._mock_distance}mm")
-            return self._mock_distance
+        distance = self.sonar.getDistance()
+        logger.debug(f"超声波距离: {distance}mm")
+        return distance
 
     def heshengbo_juli(self) -> float:
         """获取超声波距离（厘米）
@@ -105,13 +81,9 @@ class SensorController:
             List[bool]: 4个传感器状态，True表示检测到黑线
                         [左1, 左2, 右2, 右1]
         """
-        if HARDWARE_AVAILABLE:
-            states = self.infrared.readData()
-            logger.debug(f"巡线传感器: {states}")
-            return states
-        else:
-            logger.info(f"  [模拟] 巡线传感器: {self._mock_line}")
-            return self._mock_line.copy()
+        states = self.infrared.readData()
+        logger.debug(f"巡线传感器: {states}")
+        return states
 
     def xunxian_zhong(self) -> bool:
         """检测中间两个传感器是否都检测到黑线
@@ -167,18 +139,14 @@ class SensorController:
         Returns:
             int: 电量百分比，范围0-100
         """
-        if HARDWARE_AVAILABLE:
-            # Board.getBattery()返回ADC值，需要转换为百分比
-            adc = Board.getBattery()
-            # 假设ADC值范围：满电约4200，低电约3000
-            # 转换为百分比
-            percentage = int((adc - 3000) / (4200 - 3000) * 100)
-            percentage = max(0, min(100, percentage))
-            logger.debug(f"电池电量: {percentage}%")
-            return percentage
-        else:
-            logger.info(f"  [模拟] 电池电量: {self._mock_battery}%")
-            return self._mock_battery
+        # Board.getBattery()返回ADC值，需要转换为百分比
+        adc = Board.getBattery()
+        # 假设ADC值范围：满电约4200，低电约3000
+        # 转换为百分比
+        percentage = int((adc - 3000) / (4200 - 3000) * 100)
+        percentage = max(0, min(100, percentage))
+        logger.debug(f"电池电量: {percentage}%")
+        return percentage
 
     def dianchi_dian(self) -> bool:
         """检测电池电量是否低
@@ -234,6 +202,22 @@ def heshengbo_juli() -> float:
 def xunxian() -> List[bool]:
     """读取4路巡线传感器状态"""
     return sensor_controller.xunxian()
+
+
+def xunxian(channel: int) -> bool:
+    """读取指定通道的巡线传感器状态
+
+    Args:
+        channel: 通道号，0-3（对应第1-4路）
+
+    Returns:
+        bool: True表示检测到黑线
+    """
+    if channel < 0 or channel > 3:
+        raise ValueError(f"巡线传感器通道号无效: {channel}，范围应为0-3")
+
+    states = sensor_controller.xunxian()
+    return states[channel]
 
 
 def xunxian_zhong() -> bool:

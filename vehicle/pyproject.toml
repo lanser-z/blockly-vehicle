@@ -15,6 +15,7 @@ dependencies = [
     "pyyaml==6.0.1",
     "requests==2.31.0",
     "websocket-client==1.7.0",
+    "numpy>=1.24.0,<2.0.0",
 ]
 
 [dependency-groups]
@@ -23,6 +24,14 @@ dev = [
     "pytest-cov>=4.1.0",
     "black>=23.0.0",
     "pylint>=3.0.0",
+]
+
+# Raspberry Pi 硬件依赖（仅在真实硬件上需要）
+# 注意：RPi.GPIO 是系统包，需通过 apt 安装：
+#   sudo apt install python3-rpi.gpio
+hardware = [
+    "smbus2>=0.4.0",
+    "rpi-ws281x>=5.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

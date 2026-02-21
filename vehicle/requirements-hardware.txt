@@ -1,0 +1,12 @@
+# Raspberry Pi 硬件依赖
+# 这些包仅在真实 Raspberry Pi 硬件上需要
+# 安装命令: pip install -r requirements-hardware.txt
+
+# GPIO 控制 - 用于控制电机和舵机
+RPi.GPIO>=0.7.1
+
+# I2C 通信 - 用于与扩展板通信
+smbus2>=0.4.0
+
+# RGB LED 控制 - 用于控制 LED 灯
+rpi-ws281x>=5.0.0
