@@ -124,21 +124,28 @@ func (p *Pool) AddConnection(conn *Connection) error {
 
 // RemoveConnection 移除连接
 func (p *Pool) RemoveConnection(connID string) {
+	// 先收集信息（持锁）
+	var isVehicle bool
+	var vehicleID string
+
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	conn, exists := p.connections[connID]
-	if !exists {
-		return
+	if exists {
+		isVehicle = conn.Type == message.ConnTypeVehicle && conn.VehicleID != ""
+		vehicleID = conn.VehicleID
+		delete(p.connections, connID)
+
+		if isVehicle {
+			delete(p.vehicles, vehicleID)
+		} else {
+			delete(p.clients, connID)
+		}
 	}
+	p.mu.Unlock()
 
-	delete(p.connections, connID)
-
-	if conn.Type == message.ConnTypeVehicle && conn.VehicleID != "" {
-		delete(p.vehicles, conn.VehicleID)
+	// 释放锁后再通知（避免死锁）
+	if isVehicle {
 		p.notifyVehicleListChanged()
-	} else if conn.Type == message.ConnTypeClient {
-		delete(p.clients, connID)
 	}
 }
 
