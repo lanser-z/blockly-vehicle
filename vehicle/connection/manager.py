@@ -100,8 +100,14 @@ class VehicleConnectionManager:
             self.running = True
             self._reconnect_count = 0  # 重置重连计数
 
-            # 发送注册消息
-            self._send_register()
+            # 延迟发送注册消息，确保WebSocket连接完全就绪
+            def send_register_delayed():
+                try:
+                    self._send_register()
+                except Exception as e:
+                    logger.error(f"发送注册消息失败: {e}")
+
+            threading.Timer(0.1, send_register_delayed).start()
 
             # 启动心跳定时器
             self._start_heartbeat_timer()
