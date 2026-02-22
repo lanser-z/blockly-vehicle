@@ -190,11 +190,12 @@ class VehicleConnectionManager:
         def run_websocket():
             """运行WebSocket（阻塞）"""
             try:
-                # 启用ping/pong保活，添加更长的超时以适应不稳定网络
+                # 禁用底层ping/pong，使用应用层JSON心跳
+                # websocket-client的ping/pong与Gorilla WebSocket兼容性问题
+                # 只使用应用层的heartbeat消息进行保活
                 self.ws.run_forever(
-                    ping_interval=30,       # 每30秒发送ping
-                    ping_timeout=15,        # ping超时15秒
-                    ping_payload="ping",    # ping消息内容
+                    ping_interval=0,        # 禁用底层ping
+                    ping_timeout=None,      # 禁用ping超时
                     sslopt=sslopt,          # SSL 选项（SNI 或禁用验证）
                 )
             except Exception as e:
