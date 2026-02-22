@@ -5,10 +5,11 @@ bin/
 *.so
 *.dylib
 
-# Go编译缓存
+# Go编译缓存和二进制
 *.test
 *.out
-go.sum
+gateway
+block-gateway
 
 # 依赖目录
 vendor/
