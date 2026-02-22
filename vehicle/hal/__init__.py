@@ -45,7 +45,8 @@ from .sensor_controller import (
 from .gimbal_controller import (
     GimbalController,
     gimbal_controller,
-    shang, xia, zuo, you, fuwei
+    shang, xia, zuo, you, fuwei,
+    yuntai_shang, yuntai_xia, yuntai_zuo, yuntai_you, yuntai_fuwei
 )
 
 from .vision_controller import (
@@ -73,6 +74,7 @@ __all__ = [
     # 云台控制器
     'GimbalController', 'gimbal_controller',
     'shang', 'xia', 'zuo', 'you', 'fuwei',
+    'yuntai_shang', 'yuntai_xia', 'yuntai_zuo', 'yuntai_you', 'yuntai_fuwei',
 
     # 视觉控制器
     'VisionController', 'vision_controller',

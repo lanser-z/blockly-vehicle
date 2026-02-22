@@ -2,12 +2,12 @@
 
 server:
   host: "127.0.0.1"
-  port: 5001
+  port: 9406
 
 gateway:
-  heartbeat_check_interval: 30  # 心跳检测间隔（秒）
-  heartbeat_timeout: 60         # 心跳超时（秒）
+  heartbeat_check_interval: 10  # 心跳检测间隔（秒）
+  heartbeat_timeout: 25         # 心跳超时（秒）
 
 log:
-  level: "info"     # 日志级别: debug, info, warn, error
-  format: "json"    # 日志格式: json, text
+  level: "debug"    # 日志级别: debug, info, warn, error
+  format: "text"    # 日志格式: json, text

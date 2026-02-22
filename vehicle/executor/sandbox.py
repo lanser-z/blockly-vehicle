@@ -123,9 +123,10 @@ class SandboxGlobals:
             'dianchi'
         ]
 
-        # 云台控制函数
+        # 云台控制函数（按设计文档命名）
         gimbal_funcs = [
-            'shang', 'xia', 'zuo', 'you', 'fuwei'
+            'shang', 'xia', 'zuo', 'you', 'fuwei',
+            'yuntai_shang', 'yuntai_xia', 'yuntai_zuo', 'yuntai_you', 'yuntai_fuwei'
         ]
 
         # 视觉函数

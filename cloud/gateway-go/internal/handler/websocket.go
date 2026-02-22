@@ -19,13 +19,15 @@ var wsLogger = logrus.WithField("module", "websocket")
 
 // WebSocketHandler WebSocket处理器
 type WebSocketHandler struct {
-	pool *pool.Pool
+	pool   *pool.Pool
+	router *MessageRouter
 }
 
 // NewWebSocketHandler 创建WebSocket处理器
 func NewWebSocketHandler(p *pool.Pool) *WebSocketHandler {
 	return &WebSocketHandler{
-		pool: p,
+		pool:   p,
+		router: NewMessageRouter(p),
 	}
 }
 
@@ -39,6 +41,8 @@ var upgrader = websocket.Upgrader{
 
 // HandleWebSocket 处理WebSocket升级请求
 func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
+	wsLogger.Debugf("收到WebSocket升级请求: remote_addr=%s", c.Request.RemoteAddr)
+
 	// 升级HTTP到WebSocket
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -52,6 +56,8 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 
 	// 检查是否为车载连接
 	vehicleID, isVehicle := h.isVehicleConnection(c)
+
+	wsLogger.Infof("WebSocket升级成功: conn_id=%s, vehicle_id=%s, is_vehicle=%v", connID, vehicleID, isVehicle)
 
 	// 创建连接对象
 	conn := &pool.Connection{
@@ -78,6 +84,7 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	// 启动消息处理循环
+	wsLogger.Debugf("启动消息处理goroutine: conn_id=%s", connID)
 	go h.handleConnection(conn)
 }
 
@@ -92,6 +99,8 @@ func (h *WebSocketHandler) isVehicleConnection(c *gin.Context) (string, bool) {
 
 // handleConnection 处理单个WebSocket连接
 func (h *WebSocketHandler) handleConnection(conn *pool.Connection) {
+	wsLogger.Infof("消息处理循环启动: conn_id=%s, type=%s, vehicle_id=%s", conn.ID, conn.Type, conn.VehicleID)
+
 	defer func() {
 		// 连接关闭时清理
 		h.pool.RemoveConnection(conn.ID)
@@ -102,19 +111,28 @@ func (h *WebSocketHandler) handleConnection(conn *pool.Connection) {
 	// 如果是前端客户端，发送当前车辆列表
 	if conn.Type == message.ConnTypeClient {
 		vehicles := h.pool.GetVehicleList()
+		wsLogger.Debugf("发送车辆列表到客户端: conn_id=%s, vehicle_count=%d", conn.ID, len(vehicles))
 		data, _ := message.EncodeVehicleList(vehicles)
-		conn.Send(data)
+		if err := conn.Send(data); err != nil {
+			wsLogger.Errorf("发送车辆列表失败: %v", err)
+		}
 	}
 
 	// 消息读取循环
+	msgCount := 0
 	for {
 		_, data, err := conn.WS.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				wsLogger.Warnf("读取消息错误: %v", err)
+				wsLogger.Warnf("读取消息错误: conn_id=%s, error=%v", conn.ID, err)
+			} else {
+				wsLogger.Debugf("连接正常关闭: conn_id=%s", conn.ID)
 			}
 			break
 		}
+
+		msgCount++
+		wsLogger.Debugf("收到消息 #%d: conn_id=%s, len=%d", msgCount, conn.ID, len(data))
 
 		// 处理消息
 		h.handleMessage(conn, data)
@@ -144,8 +162,9 @@ func (h *WebSocketHandler) handleMessage(conn *pool.Connection, data []byte) {
 
 	default:
 		// 其他消息类型由消息路由器处理
-		// 这里只做简单日志，实际路由在主程序中
-		wsLogger.Debugf("消息类型 %s 需要路由处理", msg.Type)
+		if err := h.router.RouteMessage(msg, conn); err != nil {
+			wsLogger.Warnf("消息路由失败: type=%s, error=%v", msg.Type, err)
+		}
 	}
 }
 
@@ -178,6 +197,9 @@ func (h *WebSocketHandler) handleVehicleRegister(conn *pool.Connection, msg *mes
 	// 更新连接的vehicle_id
 	conn.VehicleID = regData.VehicleID
 	conn.Type = message.ConnTypeVehicle
+
+	// 更新连接池中的映射：将连接从clients移到vehicles
+	h.pool.RegisterVehicle(conn)
 
 	wsLogger.Infof("车辆注册成功: vehicle_id=%s, conn_id=%s", regData.VehicleID, conn.ID)
 }

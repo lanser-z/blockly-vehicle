@@ -557,76 +557,76 @@ function defineBlocks() {
 
 // ===== 定义代码生成器 =====
 function defineCodeGenerator() {
-    // 运动积木代码生成
+    // 运动积木代码生成（使用全局函数，与沙箱一致）
     state.codeGenerator.forBlock['motion_forward'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `motion.qianjin(${speed})\n`;
+        return `qianjin(${speed})\n`;
     };
 
     state.codeGenerator.forBlock['motion_backward'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `motion.houtui(${speed})\n`;
+        return `houtui(${speed})\n`;
     };
 
     state.codeGenerator.forBlock['motion_left'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `motion.zuopingyi(${speed})\n`;
+        return `zuopingyi(${speed})\n`;
     };
 
     state.codeGenerator.forBlock['motion_right'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `motion.youpingyi(${speed})\n`;
+        return `youpingyi(${speed})\n`;
     };
 
     state.codeGenerator.forBlock['motion_stop'] = function(block) {
-        return `motion.tingzhi()\n`;
+        return `tingzhi()\n`;
     };
 
     // 左右转积木代码生成
     state.codeGenerator.forBlock['motion_turn_left'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `motion.xiaozuozhuan(${speed})\n`;
+        return `xiaozuozhuan(${speed})\n`;
     };
 
     state.codeGenerator.forBlock['motion_turn_right'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `motion.xiaoyouzhuan(${speed})\n`;
+        return `xiaoyouzhuan(${speed})\n`;
     };
 
-    // 云台积木代码生成
+    // 云台积木代码生成（按设计文档命名: yuntai_*）
     state.codeGenerator.forBlock['gimbal_up'] = function(block) {
-        return `gimbal.shang()\n`;
+        return `yuntai_shang(30)\n`;
     };
 
     state.codeGenerator.forBlock['gimbal_down'] = function(block) {
-        return `gimbal.xia()\n`;
+        return `yuntai_xia(30)\n`;
     };
 
     state.codeGenerator.forBlock['gimbal_left'] = function(block) {
-        return `gimbal.zuo()\n`;
+        return `yuntai_zuo(30)\n`;
     };
 
     state.codeGenerator.forBlock['gimbal_right'] = function(block) {
-        return `gimbal.you()\n`;
+        return `yuntai_you(30)\n`;
     };
 
     state.codeGenerator.forBlock['gimbal_reset'] = function(block) {
-        return `gimbal.fuwei()\n`;
+        return `yuntai_fuwei()\n`;
     };
 
-    // 传感器积木代码生成
+    // 传感器积木代码生成（使用全局函数）
     state.codeGenerator.forBlock['sensor_ultrasonic'] = function(block) {
-        const code = 'sensor.heshengbo()';
-        return [code, state.codeGenerator.ORDER_MEMBER];
+        const code = 'heshengbo()';
+        return [code, state.codeGenerator.ORDER_FUNCTION_CALL];
     };
 
     state.codeGenerator.forBlock['sensor_line'] = function(block) {
         const channel = block.getFieldValue('CHANNEL');
-        const code = `sensor.xunxian(${channel})`;
-        return [code, state.codeGenerator.ORDER_MEMBER];
+        const code = `xunxian(${channel})`;
+        return [code, state.codeGenerator.ORDER_FUNCTION_CALL];
     };
 
-    // 视觉积木代码生成
+    // 视觉积木代码生成（使用全局函数）
     state.codeGenerator.forBlock['vision_detect_color'] = function(block) {
         const color = block.getFieldValue('COLOR');
         const colorMap = {
@@ -637,8 +637,8 @@ function defineCodeGenerator() {
             'orange': 'cheng',
         };
         const colorName = colorMap[color] || color;
-        const code = `vision.shibieyanse("${colorName}")`;
-        return [code, state.codeGenerator.ORDER_MEMBER];
+        const code = `shibieyanse("${colorName}")`;
+        return [code, state.codeGenerator.ORDER_FUNCTION_CALL];
     };
 
     // 逻辑积木代码生成
@@ -1034,6 +1034,7 @@ function connectWebSocket() {
 function send(message) {
     if (state.ws && state.connected) {
         const jsonStr = JSON.stringify(message);
+        console.log('WebSocket发送:', jsonStr);
         state.ws.send(jsonStr);
     } else {
         console.warn('WebSocket未连接，无法发送消息');
@@ -1316,7 +1317,8 @@ function toggleLanguage() {
 
         // 清除并重新加载工作区
         state.workspace.clear();
-        const newXml = Blockly.Xml.textToDom(xmlText);
+        // 使用Blockly.utils.xml.textToDom代替已废弃的Blockly.Xml.textToDom
+        const newXml = Blockly.utils.xml.textToDom(xmlText);
         Blockly.Xml.domToWorkspace(newXml, state.workspace);
     }
 
@@ -1374,6 +1376,7 @@ function setupEventListeners() {
 
     // 运行按钮
     document.getElementById('btn-run').addEventListener('click', () => {
+        console.log('点击运行按钮, state.vehicleId =', state.vehicleId);
         const code = state.codeGenerator.workspaceToCode(state.workspace);
         if (!code || code.trim() === '') {
             showError('请先拖拽积木块');
@@ -1381,14 +1384,17 @@ function setupEventListeners() {
         }
 
         const executionId = generateExecutionId();
-        send({
+        const message = {
             type: 'execute_code',
+            vehicle_id: state.vehicleId,  // vehicle_id 在顶层
             data: {
                 code: code,
                 timeout: 60,
                 execution_id: executionId,
             },
-        });
+        };
+        console.log('发送消息:', message);
+        send(message);
     });
 
     // 停止按钮
@@ -1396,6 +1402,7 @@ function setupEventListeners() {
         if (state.executionId) {
             send({
                 type: 'stop_execution',
+                vehicle_id: state.vehicleId,  // vehicle_id 在顶层
                 data: {
                     execution_id: state.executionId,
                 },
@@ -1460,3 +1467,4 @@ async function init() {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', init);
+// v2

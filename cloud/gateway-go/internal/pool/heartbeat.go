@@ -28,37 +28,39 @@ func (p *Pool) heartbeatMonitor() {
 }
 
 // checkTimeouts 检查超时连接
+// 修复：避免在持锁状态下调用可能阻塞或尝试获取锁的方法
 func (p *Pool) checkTimeouts() {
+	// 第一阶段：收集超时连接信息（持锁）
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	now := time.Now()
-	timeoutVehicles := make([]string, 0)
+	timeoutConns := make([]*Connection, 0)
 
 	for vehicleID, conn := range p.vehicles {
 		if now.Sub(conn.LastHeartbeat) > p.heartbeatTimeout {
-			timeoutVehicles = append(timeoutVehicles, vehicleID)
+			logger.Warnf("车辆 %s 心跳超时，准备断开连接", vehicleID)
+			// 从连接池移除
+			delete(p.vehicles, vehicleID)
+			delete(p.connections, conn.ID)
+			// 收集需要关闭的连接
+			timeoutConns = append(timeoutConns, conn)
 		}
 	}
 
-	// 清理超时连接
-	for _, vehicleID := range timeoutVehicles {
-		conn := p.vehicles[vehicleID]
-		logger.Warnf("车辆 %s 心跳超时，断开连接", vehicleID)
+	// 标记需要通知车辆列表变化
+	needNotify := len(timeoutConns) > 0
+	p.mu.Unlock()
 
-		// 关闭WebSocket连接
-		conn.Close()
-
-		// 从连接池移除
-		delete(p.vehicles, vehicleID)
-		delete(p.connections, conn.ID)
-
-		// 通知车辆列表变化
-		p.notifyVehicleListChanged()
+	// 第二阶段：关闭连接（不持锁，避免死锁）
+	for _, conn := range timeoutConns {
+		if err := conn.Close(); err != nil {
+			logger.Errorf("关闭连接失败: %v", err)
+		}
 	}
 
-	if len(timeoutVehicles) > 0 {
-		logger.Warnf("清理了 %d 个超时连接", len(timeoutVehicles))
+	// 第三阶段：通知车辆列表变化（不持锁，避免与GetVehicleList死锁）
+	if needNotify {
+		p.notifyVehicleListChanged()
+		logger.Warnf("清理了 %d 个超时连接", len(timeoutConns))
 	}
 }
 

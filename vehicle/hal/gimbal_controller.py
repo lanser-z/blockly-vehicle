@@ -188,3 +188,56 @@ def set_vertical(angle: int):
 def get_position() -> dict:
     """获取云台位置"""
     return gimbal_controller.get_position()
+
+
+# ===== 按设计文档添加的API别名 =====
+# 设计文档: docs/02-block-api.md
+# 这些函数名与设计文档一致，保持API兼容性
+
+def yuntai_shang(angle: int = 30) -> None:
+    """云台向上转动（按设计文档命名）
+
+    Args:
+        angle: 转动角度 (0-90), 默认30
+    """
+    angle = max(0, min(90, angle))
+    new_angle = gimbal_controller.CENTER_ANGLE + angle
+    gimbal_controller.set_vertical(new_angle)
+
+
+def yuntai_xia(angle: int = 30) -> None:
+    """云台向下转动（按设计文档命名）
+
+    Args:
+        angle: 转动角度 (0-90), 默认30
+    """
+    angle = max(0, min(90, angle))
+    new_angle = gimbal_controller.CENTER_ANGLE - angle
+    gimbal_controller.set_vertical(new_angle)
+
+
+def yuntai_zuo(angle: int = 30) -> None:
+    """云台向左转动（按设计文档命名）
+
+    Args:
+        angle: 转动角度 (0-90), 默认30
+    """
+    angle = max(0, min(90, angle))
+    new_angle = gimbal_controller.CENTER_ANGLE - angle
+    gimbal_controller.set_horizontal(new_angle)
+
+
+def yuntai_you(angle: int = 30) -> None:
+    """云台向右转动（按设计文档命名）
+
+    Args:
+        angle: 转动角度 (0-90), 默认30
+    """
+    angle = max(0, min(90, angle))
+    new_angle = gimbal_controller.CENTER_ANGLE + angle
+    gimbal_controller.set_horizontal(new_angle)
+
+
+def yuntai_fuwei() -> None:
+    """云台复位到初始位置（按设计文档命名）"""
+    gimbal_controller.fuwei()

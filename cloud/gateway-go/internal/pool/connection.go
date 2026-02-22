@@ -112,7 +112,9 @@ func (p *Pool) AddConnection(conn *Connection) error {
 
 	if conn.Type == message.ConnTypeVehicle && conn.VehicleID != "" {
 		p.vehicles[conn.VehicleID] = conn
-		p.notifyVehicleListChanged()
+		// 注意：不在持锁状态调用 notifyVehicleListChanged，避免死锁
+		// 使用 goroutine 异步通知
+		go p.notifyVehicleListChanged()
 	} else if conn.Type == message.ConnTypeClient {
 		p.clients[conn.ID] = conn
 	}
@@ -138,6 +140,27 @@ func (p *Pool) RemoveConnection(connID string) {
 	} else if conn.Type == message.ConnTypeClient {
 		delete(p.clients, connID)
 	}
+}
+
+// RegisterVehicle 将连接注册为车辆（用于后注册场景）
+// 当车辆连接时未发送X-Vehicle-ID头，而是在后续消息中注册时使用
+func (p *Pool) RegisterVehicle(conn *Connection) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// 如果连接已经在 vehicles 中，跳过
+	if _, exists := p.vehicles[conn.VehicleID]; exists {
+		return
+	}
+
+	// 如果该连接在 clients 中，先移除
+	delete(p.clients, conn.ID)
+
+	// 添加到 vehicles
+	p.vehicles[conn.VehicleID] = conn
+
+	// 通知车辆列表变化（使用 goroutine 异步执行，避免在持锁状态阻塞）
+	go p.notifyVehicleListChanged()
 }
 
 // GetConnection 获取连接

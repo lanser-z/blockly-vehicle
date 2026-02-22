@@ -10,6 +10,8 @@
 
 import json
 import logging
+import os
+import ssl
 import time
 import threading
 import websocket
@@ -34,6 +36,20 @@ class VehicleConnectionManager:
         self.running = False
         self.ws: Optional[websocket.WebSocketApp] = None
         self._thread: Optional[threading.Thread] = None
+        self._reconnect_count = 0  # 重连计数
+        self._max_reconnect = 5    # 最大重连次数
+
+        # 心跳定时器
+        self._heartbeat_timer: Optional[threading.Timer] = None
+        self._heartbeat_interval = 10  # 心跳间隔（秒），应小于 gateway 的超时时间（25秒）
+
+        # 保存原始域名用于 SNI（Server Name Indication）
+        # 当使用 IP 地址连接时，需要告诉服务器证书对应的域名
+        original_url = cloud_url.replace('wss://', 'https://').replace('ws://', 'http://')
+        if '://' in original_url and '/' in original_url:
+            self._sni_host = original_url.split('://')[1].split('/')[0].split(':')[0]
+        else:
+            self._sni_host = 'lanser.fun'  # 默认域名
 
         # 规范化URL为WebSocket连接地址
         # 如果URL包含 /block/ws/gateway，直接使用
@@ -49,6 +65,9 @@ class VehicleConnectionManager:
             # 纯域名，添加完整路径
             base = cloud_url.replace('https://', 'wss://').replace('http://', 'ws://')
             self.ws_url = f"{base}/block/ws/gateway"
+
+        # SSL 验证选项（可通过环境变量禁用，用于测试）
+        self._skip_ssl_verify = os.getenv('WS_SKIP_SSL_VERIFY', 'false').lower() == 'true'
 
         # 消息处理器
         self.message_handlers: Dict[str, Callable] = {}
@@ -72,16 +91,20 @@ class VehicleConnectionManager:
         self.on_error_cb = on_error
 
     def connect(self) -> websocket.WebSocketApp:
-        """连接到云端"""
+        """连接到云端（带自动重连）"""
         logger.info(f"正在连接到云端: {self.ws_url}")
 
         def on_open(ws):
             """连接建立回调"""
             logger.info(f"WebSocket连接已建立 (vehicle_id: {self.vehicle_id})")
             self.running = True
+            self._reconnect_count = 0  # 重置重连计数
 
             # 发送注册消息
             self._send_register()
+
+            # 启动心跳定时器
+            self._start_heartbeat_timer()
 
             # 调用连接回调
             if self.on_connect_cb:
@@ -99,7 +122,11 @@ class VehicleConnectionManager:
                 if handler:
                     handler(data if isinstance(data, dict) else {'type': msg_type})
                 else:
-                    logger.warning(f"未知消息类型: {msg_type}")
+                    # WebSocket 协议层的消息（ping, pong, close）不记录警告
+                    if msg_type not in ('ping', 'pong', 'close'):
+                        logger.warning(f"未知消息类型: {msg_type}")
+                    else:
+                        logger.debug(f"WebSocket协议消息: {msg_type}")
 
             except json.JSONDecodeError:
                 logger.warning(f"收到非JSON消息: {message}")
@@ -112,7 +139,7 @@ class VehicleConnectionManager:
 
         def on_error(ws, error):
             """连接错误回调"""
-            logger.error(f"WebSocket错误: {error}")
+            logger.error(f"WebSocket错误: {error} (类型: {type(error).__name__})")
             if self.on_error_cb:
                 self.on_error_cb(error)
 
@@ -121,9 +148,33 @@ class VehicleConnectionManager:
             logger.info(f"WebSocket连接已关闭: {close_status_code} - {close_msg}")
             self.running = False
 
+            # 停止心跳定时器
+            self._stop_heartbeat_timer()
+
             # 调用断开回调
             if self.on_disconnect_cb:
                 self.on_disconnect_cb()
+
+            # 自动重连（如果未达到最大重连次数）
+            if self._reconnect_count < self._max_reconnect:
+                self._reconnect_count += 1
+                retry_delay = min(2 ** self._reconnect_count, 30)  # 指数退避，最多30秒
+                logger.info(f"将在 {retry_delay} 秒后尝试重连 ({self._reconnect_count}/{self._max_reconnect})...")
+                time.sleep(retry_delay)
+                self.connect()
+            else:
+                logger.error(f"已达到最大重连次数 ({self._max_reconnect})，停止重连")
+
+        # 配置 SSL 选项
+        sslopt = {}
+        if self._skip_ssl_verify:
+            # 禁用 SSL 证书验证（仅用于测试/开发环境）
+            logger.warning("SSL 证书验证已禁用（WS_SKIP_SSL_VERIFY=true）")
+            sslopt['cert_reqs'] = ssl.CERT_NONE
+        else:
+            # 使用 SNI 指定证书对应的域名（即使连接到 IP 地址）
+            # 这允许使用 IP 地址连接，同时证书验证仍然有效
+            sslopt['server_hostname'] = self._sni_host
 
         # 创建WebSocket客户端
         self.ws = websocket.WebSocketApp(
@@ -139,13 +190,16 @@ class VehicleConnectionManager:
         def run_websocket():
             """运行WebSocket（阻塞）"""
             try:
-                # 启用ping/pong保活
+                # 启用ping/pong保活，添加更长的超时以适应不稳定网络
                 self.ws.run_forever(
-                    ping_interval=30,  # 每30秒发送ping
-                    ping_timeout=10,   # ping超时10秒
+                    ping_interval=30,       # 每30秒发送ping
+                    ping_timeout=15,        # ping超时15秒
+                    ping_payload="ping",    # ping消息内容
+                    sslopt=sslopt,          # SSL 选项（SNI 或禁用验证）
                 )
             except Exception as e:
                 logger.error(f"WebSocket运行异常: {e}")
+                logger.error(f"错误类型: {type(e).__name__}")
                 if self.on_error_cb:
                     self.on_error_cb(e)
 
@@ -156,6 +210,7 @@ class VehicleConnectionManager:
 
     def _send_register(self):
         """发送注册消息"""
+        logger.info(f"发送车辆注册消息: vehicle_id={self.vehicle_id}")
         self.send({
             "type": "register",
             "data": {
@@ -266,8 +321,38 @@ class VehicleConnectionManager:
         """检查是否已连接"""
         return self.running and self.ws is not None
 
+    def _start_heartbeat_timer(self):
+        """启动心跳定时器"""
+        # 停止之前的定时器（如果存在）
+        self._stop_heartbeat_timer()
+
+        # 创建新的定时器
+        self._heartbeat_timer = threading.Timer(
+            self._heartbeat_interval,
+            self._heartbeat_callback
+        )
+        self._heartbeat_timer.daemon = True
+        self._heartbeat_timer.start()
+
+    def _stop_heartbeat_timer(self):
+        """停止心跳定时器"""
+        if self._heartbeat_timer:
+            self._heartbeat_timer.cancel()
+            self._heartbeat_timer = None
+
+    def _heartbeat_callback(self):
+        """心跳定时器回调"""
+        if self.running and self.ws:
+            try:
+                self.send_heartbeat()
+                # 重启定时器，继续发送下一次心跳
+                self._start_heartbeat_timer()
+            except Exception as e:
+                logger.error(f"发送心跳失败: {e}")
+
     def disconnect(self):
         """断开连接"""
+        self._stop_heartbeat_timer()
         if self.ws:
             self.running = False
             self.ws.close()
