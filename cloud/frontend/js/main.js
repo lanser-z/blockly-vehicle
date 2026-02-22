@@ -271,6 +271,19 @@ function initBlockly() {
     // 定义缩进
     state.codeGenerator.INDENT = '    ';
 
+    // ===== 关键：scrub_ 方法处理序列积木 =====
+    // 这个方法负责将串联的积木块生成的代码连接起来
+    // 如果没有这个方法，只能生成第一个积木的代码
+    state.codeGenerator.scrub_ = function(block, code, opt_thisOnly) {
+        const nextBlock = block.nextConnection && block.nextConnection.targetBlock();
+        if (nextBlock && !opt_thisOnly) {
+            // 递归生成下一个积木的代码并拼接
+            const nextCode = this.blockToCode(nextBlock);
+            return code + nextCode;
+        }
+        return code;
+    };
+
     // 初始化工作区 - 使用动态工具箱
     const workspace = Blockly.inject('blockly-div', {
         toolbox: getToolbox(),
