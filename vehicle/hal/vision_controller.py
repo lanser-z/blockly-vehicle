@@ -66,9 +66,19 @@ class VisionController:
     MIN_CONTOUR_AREA = 500  # 最小轮廓面积
 
     def __init__(self):
-        self.camera = cv2.VideoCapture(0)
-        if not self.camera.isOpened():
-            raise RuntimeError("无法打开摄像头")
+        # 尝试打开摄像头，支持多个索引（因为有些系统摄像头是 /dev/video1）
+        self.camera = None
+        for idx in range(3):  # 尝试索引 0, 1, 2
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                self.camera = cap
+                logger.info(f"成功打开摄像头: index={idx}")
+                break
+            cap.release()
+
+        if self.camera is None:
+            raise RuntimeError("无法打开摄像头（尝试了索引 0-2）")
+
         # 设置分辨率
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
