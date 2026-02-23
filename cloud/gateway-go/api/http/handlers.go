@@ -2,6 +2,8 @@
 package http
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -89,5 +91,107 @@ func (h *Handlers) GetVehicles(c *gin.Context) {
 func (h *Handlers) NotFound(c *gin.Context) {
 	c.JSON(http.StatusNotFound, gin.H{
 		"error": "未找到请求的资源",
+	})
+}
+
+// CameraSnapshot 摄像头快照代理
+// 通过 WebSocket 向车载系统请求摄像头快照
+func (h *Handlers) CameraSnapshot(c *gin.Context) {
+	vehicleID := c.Query("vehicle_id")
+	if vehicleID == "" {
+		vehicleID = "vehicle-001" // 默认车辆
+	}
+
+	// 从连接池获取车辆连接
+	conn, exists := h.pool.GetVehicle(vehicleID)
+	if !exists {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": fmt.Sprintf("车辆 %s 未连接", vehicleID),
+		})
+		return
+	}
+
+	if conn.IsClosed() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": fmt.Sprintf("车辆 %s 连接已关闭", vehicleID),
+		})
+		return
+	}
+
+	// 创建请求消息
+	requestMsg := map[string]interface{}{
+		"type": "camera_snapshot_request",
+		"data": map[string]interface{}{
+			"request_id": fmt.Sprintf("%d", time.Now().UnixNano()),
+		},
+	}
+
+	msgBytes, err := json.Marshal(requestMsg)
+	if err != nil {
+		httpLogger.Errorf("编码摄像头请求失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "编码请求失败"})
+		return
+	}
+
+	// 发送请求到车载系统
+	if err := conn.Send(msgBytes); err != nil {
+		httpLogger.Errorf("发送摄像头请求失败: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "发送请求失败"})
+		return
+	}
+
+	// 由于 WebSocket 是异步的，这里使用简化的方案：
+	// 让车载系统在收到请求后直接通过 WebSocket 发送响应
+	// 但这需要修改车载系统代码来处理这个新消息类型
+
+	// 临时方案：直接返回错误，提示使用车载系统直接访问
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"error": "摄像头快照通过 WebSocket 代理尚未实现",
+		"message": "请直接访问车载系统的 HTTP 端点",
+		"vehicle_id": vehicleID,
+	})
+}
+
+// CameraSnapshotDirect 直接摄像头快照（用于测试）
+// 这个方法假设车载系统在同一局域网或可通过本地端口访问
+func (h *Handlers) CameraSnapshotDirect(c *gin.Context) {
+	// 获取第一个在线车辆
+	vehicles := h.pool.GetVehicleList()
+	if len(vehicles) == 0 {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "没有在线车辆",
+		})
+		return
+	}
+
+	vehicleID := vehicles[0].VehicleID
+
+	// 检查车辆连接状态
+	conn, exists := h.pool.GetVehicle(vehicleID)
+	if !exists || conn.IsClosed() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": fmt.Sprintf("车辆 %s 未连接", vehicleID),
+		})
+		return
+	}
+
+	// 通过 WebSocket 发送快照请求
+	// 注意：这需要车载系统实现 camera_snapshot 消息类型的处理
+	request := map[string]interface{}{
+		"type": "camera_snapshot",
+	}
+
+	requestBytes, _ := json.Marshal(request)
+	if err := conn.Send(requestBytes); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "发送请求失败"})
+		return
+	}
+
+	// 由于 WebSocket 是异步的，实际实现需要等待响应
+	// 这里返回一个占位响应
+	c.JSON(http.StatusOK, gin.H{
+		"status": "requested",
+		"vehicle_id": vehicleID,
+		"message": "摄像头快照请求已发送，请通过 WebSocket 接收图像数据",
 	})
 }

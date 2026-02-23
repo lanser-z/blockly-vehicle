@@ -97,6 +97,7 @@ func main() {
 	httpHandlers := gatewayhttp.NewHandlers(connectionPool)
 	router.GET("/health", httpHandlers.HealthCheck)
 	router.GET("/api/vehicles", httpHandlers.GetVehicles)
+	router.GET("/camera/snapshot", httpHandlers.CameraSnapshot)
 	router.NoRoute(httpHandlers.NotFound)
 
 	// 注册WebSocket端点
