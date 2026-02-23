@@ -36,9 +36,9 @@ class GimbalController:
     - 舵机2: 垂直转动（上下），0°-180°，90°为中位
     """
 
-    # 舵机ID配置
-    SERVO_HORIZONTAL = 1  # 水平舵机
-    SERVO_VERTICAL = 2    # 垂直舵机
+    # 舵机ID配置（物理接线已互换，需要交换ID映射）
+    SERVO_HORIZONTAL = 2  # 水平舵机（物理上是舵机2）
+    SERVO_VERTICAL = 1    # 垂直舵机（物理上是舵机1）
 
     # 角度限制
     MIN_ANGLE = 0

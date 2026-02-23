@@ -293,6 +293,37 @@ def handle_cloud_message(data):
             "data": {}
         })
 
+    elif msg_type == 'camera_snapshot_request':
+        # 摄像头快照请求
+        payload = data.get('data', {})
+        request_id = payload.get('request_id', 'unknown')
+        logger.info(f"收到摄像头快照请求: {request_id}")
+
+        try:
+            import base64
+            import cv2
+            # 读取摄像头帧
+            if hal.vision_controller._read_frame():
+                frame = hal.vision_controller.current_frame
+                # 编码为JPEG
+                ret, buffer = cv2.imencode('.jpg', frame)
+                if ret:
+                    jpg_bytes = buffer.tobytes()
+                    image_base64 = base64.b64encode(jpg_bytes).decode('utf-8')
+
+                    # 发送响应
+                    connection_manager.send_camera_snapshot(request_id, image_base64)
+                    logger.info(f"摄像头快照已发送: request_id={request_id}, size={len(jpg_bytes)}")
+                else:
+                    logger.warning("摄像头编码失败")
+                    connection_manager.send_camera_snapshot(request_id, "")
+            else:
+                logger.warning("无法读取摄像头帧")
+                connection_manager.send_camera_snapshot(request_id, "")
+        except Exception as e:
+            logger.error(f"处理摄像头快照请求失败: {e}")
+            connection_manager.send_camera_snapshot(request_id, "")
+
 
 # ===== 主程序 =====
 
@@ -304,6 +335,7 @@ def create_app():
     connection_manager.register_handler('emergency_stop', handle_cloud_message)
     connection_manager.register_handler('get_status', handle_cloud_message)
     connection_manager.register_handler('ping', handle_cloud_message)
+    connection_manager.register_handler('camera_snapshot_request', handle_cloud_message)
 
     # 设置连接状态回调
     connection_manager.set_callbacks(

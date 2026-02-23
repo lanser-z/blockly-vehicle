@@ -332,9 +332,9 @@ function defineBlocks() {
             this.appendDummyInput()
                 .appendField('⬆️ ' + getBlockText('forward'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 ' + getBlockText('slow'), '30'],
-                    ['🚶 ' + getBlockText('medium'), '50'],
-                    ['🏃 ' + getBlockText('fast'), '70'],
+                    ['🐢 ' + getBlockText('slow'), '40'],
+                    ['🚶 ' + getBlockText('medium'), '60'],
+                    ['🏃 ' + getBlockText('fast'), '80'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -348,9 +348,9 @@ function defineBlocks() {
             this.appendDummyInput()
                 .appendField('⬇️ ' + getBlockText('backward'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 ' + getBlockText('slow'), '30'],
-                    ['🚶 ' + getBlockText('medium'), '50'],
-                    ['🏃 ' + getBlockText('fast'), '70'],
+                    ['🐢 ' + getBlockText('slow'), '40'],
+                    ['🚶 ' + getBlockText('medium'), '60'],
+                    ['🏃 ' + getBlockText('fast'), '80'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -358,15 +358,15 @@ function defineBlocks() {
         }
     };
 
-    // 左平移积木
+    // 左平移积木（实际功能是旋转）
     Blockly.Blocks['motion_left'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('⬅️ ' + getBlockText('left'))
+                .appendField('↪️ ' + getBlockText('turn_left'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 ' + getBlockText('slow'), '30'],
-                    ['🚶 ' + getBlockText('medium'), '50'],
-                    ['🏃 ' + getBlockText('fast'), '70'],
+                    ['🐢 ' + getBlockText('slow'), '40'],
+                    ['🚶 ' + getBlockText('medium'), '60'],
+                    ['🏃 ' + getBlockText('fast'), '80'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -374,15 +374,15 @@ function defineBlocks() {
         }
     };
 
-    // 右平移积木
+    // 右平移积木（实际功能是旋转）
     Blockly.Blocks['motion_right'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('➡️ ' + getBlockText('right'))
+                .appendField('↩️ ' + getBlockText('turn_right'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 ' + getBlockText('slow'), '30'],
-                    ['🚶 ' + getBlockText('medium'), '50'],
-                    ['🏃 ' + getBlockText('fast'), '70'],
+                    ['🐢 ' + getBlockText('slow'), '40'],
+                    ['🚶 ' + getBlockText('medium'), '60'],
+                    ['🏃 ' + getBlockText('fast'), '80'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -400,15 +400,15 @@ function defineBlocks() {
         }
     };
 
-    // 左转积木
+    // 左转积木（实际功能是平移）
     Blockly.Blocks['motion_turn_left'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('↪️ ' + getBlockText('turn_left'))
+                .appendField('⬅️ ' + getBlockText('left'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 ' + getBlockText('slow'), '30'],
-                    ['🚶 ' + getBlockText('medium'), '50'],
-                    ['🏃 ' + getBlockText('fast'), '70'],
+                    ['🐢 ' + getBlockText('slow'), '40'],
+                    ['🚶 ' + getBlockText('medium'), '60'],
+                    ['🏃 ' + getBlockText('fast'), '80'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -416,15 +416,15 @@ function defineBlocks() {
         }
     };
 
-    // 右转积木
+    // 右转积木（实际功能是平移）
     Blockly.Blocks['motion_turn_right'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField('↩️ ' + getBlockText('turn_right'))
+                .appendField('➡️ ' + getBlockText('right'))
                 .appendField(new Blockly.FieldDropdown([
-                    ['🐢 ' + getBlockText('slow'), '30'],
-                    ['🚶 ' + getBlockText('medium'), '50'],
-                    ['🏃 ' + getBlockText('fast'), '70'],
+                    ['🐢 ' + getBlockText('slow'), '40'],
+                    ['🚶 ' + getBlockText('medium'), '60'],
+                    ['🏃 ' + getBlockText('fast'), '80'],
                 ]), 'SPEED');
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -581,29 +581,32 @@ function defineCodeGenerator() {
         return `houtui(${speed})\n`;
     };
 
+    // motion_left 显示 "左转" ↪️，实际功能是旋转
     state.codeGenerator.forBlock['motion_left'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `zuopingyi(${speed})\n`;
+        return `xiaozuozhuan(${speed})\n`;
     };
 
+    // motion_right 显示 "右转" ↩️，实际功能是旋转
     state.codeGenerator.forBlock['motion_right'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `youpingyi(${speed})\n`;
+        return `xiaoyouzhuan(${speed})\n`;
     };
 
     state.codeGenerator.forBlock['motion_stop'] = function(block) {
         return `tingzhi()\n`;
     };
 
-    // 左右转积木代码生成
+    // motion_turn_left 显示 "左平移" ⬅️，实际功能是平移
     state.codeGenerator.forBlock['motion_turn_left'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `xiaozuozhuan(${speed})\n`;
+        return `zuopingyi(${speed})\n`;
     };
 
+    // motion_turn_right 显示 "右平移" ➡️，实际功能是平移
     state.codeGenerator.forBlock['motion_turn_right'] = function(block) {
         const speed = block.getFieldValue('SPEED');
-        return `xiaoyouzhuan(${speed})\n`;
+        return `youpingyi(${speed})\n`;
     };
 
     // 云台积木代码生成（按设计文档命名: yuntai_*）
@@ -1489,22 +1492,15 @@ function startCameraPreview() {
     const preview = document.getElementById('camera-preview');
     if (!preview) return;
 
-    // 从配置或默认值获取车载服务URL
-    // 默认使用当前域名的 vehicle 子域名（通过FRP访问）
+    // 获取摄像头URL - 通过网关代理
     const getCameraUrl = () => {
-        const wsUrl = state.wsUrl || window.location.origin;
-        // 将 wss:// 转换为 https://, ws:// 转换为 http://
-        const baseUrl = wsUrl.replace('wss://', 'https://').replace('ws://', 'http://');
-        // 尝试使用 vehicle 子域名（需要FRP配置支持）
-        // 或直接使用当前域名 + /vehicle 前缀（需要网关代理）
-        return `${baseUrl.replace('/block', '')}/camera/snapshot`;
+        const origin = window.location.origin;
+        // 使用 /block/camera/snapshot 路径，由nginx代理到网关
+        return `${origin}/block/camera/snapshot`;
     };
 
     const updateCamera = async () => {
         try {
-            // 只在有选中车辆时更新摄像头
-            if (!state.selectedVehicleId) return;
-
             const cameraUrl = getCameraUrl();
             const response = await fetch(cameraUrl);
 

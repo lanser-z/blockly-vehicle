@@ -47,7 +47,8 @@ class MotionController:
     """运动控制器"""
 
     def __init__(self):
-        self.chassis = mecanum.MecanumChassis()
+        # 不使用chassis，直接控制电机
+        # self.chassis = mecanum.MecanumChassis()
 
         # 安全限制
         self.max_speed = int(os.getenv('MOTOR_MAX_SPEED', '80'))
@@ -64,51 +65,75 @@ class MotionController:
         return max(0, min(self.servo_max_angle, angle))
 
     # ===== 基础运动 =====
+    # 轮子布局: 左前(1)=A, 右前(2)=B, 左后(3)=B, 右后(4)=A
 
     def qianjin(self, speed: int = 50) -> None:
         """前进"""
         speed = self._clamp_speed(speed)
         logger.info(f"前进: 速度={speed}")
-        # 90度 = 向前（Y轴正方向）
-        self.chassis.set_velocity(velocity=speed * 10, direction=90, angular_rate=0)
+        # 前进: 所有轮子正转
+        Board.setMotor(1, speed)   # 左前
+        Board.setMotor(2, speed)   # 右前
+        Board.setMotor(3, speed)   # 左后
+        Board.setMotor(4, speed)   # 右后
 
     def houtui(self, speed: int = 50) -> None:
         """后退"""
         speed = self._clamp_speed(speed)
         logger.info(f"后退: 速度={speed}")
-        # 270度 = 向后（Y轴负方向）
-        self.chassis.set_velocity(velocity=speed * 10, direction=270, angular_rate=0)
+        # 后退: 所有轮子反转
+        Board.setMotor(1, -speed)  # 左前
+        Board.setMotor(2, -speed)  # 右前
+        Board.setMotor(3, -speed)  # 左后
+        Board.setMotor(4, -speed)  # 右后
 
     def zuopingyi(self, speed: int = 50) -> None:
         """左平移"""
         speed = self._clamp_speed(speed)
         logger.info(f"左平移: 速度={speed}")
-        # 使用 translation 方法: vx负值向左，vy=0
-        self.chassis.translation(-speed * 10, 0)
+        # 左平移: LF-, RF+, LB-, RB+
+        Board.setMotor(1, -speed)  # 左前
+        Board.setMotor(2, speed)   # 右前
+        Board.setMotor(3, -speed)  # 左后
+        Board.setMotor(4, speed)   # 右后
 
     def youpingyi(self, speed: int = 50) -> None:
         """右平移"""
         speed = self._clamp_speed(speed)
         logger.info(f"右平移: 速度={speed}")
-        # 使用 translation 方法: vx正值向右，vy=0
-        self.chassis.translation(speed * 10, 0)
+        # 右平移: LF+, RF-, LB+, RB-
+        Board.setMotor(1, speed)   # 左前
+        Board.setMotor(2, -speed)  # 右前
+        Board.setMotor(3, speed)   # 左后
+        Board.setMotor(4, -speed)  # 右后
 
     def xuanzhuan(self, speed: int = 50) -> None:
         """原地旋转（顺时针）"""
         speed = self._clamp_speed(speed)
         logger.info(f"旋转(顺时针): 速度={speed}")
-        self.chassis.set_velocity(velocity=0, direction=0, angular_rate=speed)
+        # 顺时针: LF+, RF-, LB-, RB-
+        Board.setMotor(1, speed)   # 左前
+        Board.setMotor(2, -speed)  # 右前
+        Board.setMotor(3, -speed)  # 左后
+        Board.setMotor(4, speed)   # 右后
 
     def fxuanzhuan(self, speed: int = 50) -> None:
         """原地旋转（逆时针）"""
         speed = self._clamp_speed(speed)
         logger.info(f"旋转(逆时针): 速度={speed}")
-        self.chassis.set_velocity(velocity=0, direction=0, angular_rate=-speed)
+        # 逆时针: LF-, RF+, LB+, RB+
+        Board.setMotor(1, -speed)  # 左前
+        Board.setMotor(2, speed)   # 右前
+        Board.setMotor(3, speed)   # 左后
+        Board.setMotor(4, -speed)  # 右后
 
     def tingzhi(self) -> None:
         """停止所有电机"""
         logger.info("停止")
-        self.chassis.reset_motors()
+        Board.setMotor(1, 0)
+        Board.setMotor(2, 0)
+        Board.setMotor(3, 0)
+        Board.setMotor(4, 0)
 
     # ===== 高级运动 =====
 
@@ -116,14 +141,20 @@ class MotionController:
         """按角度移动"""
         speed = self._clamp_speed(speed)
         logger.info(f"按角度移动: 角度={angle}°, 速度={speed}")
-        self.chassis.set_velocity(velocity=speed * 10, direction=angle, angular_rate=0)
+        # 使用chassis进行角度移动
+        import mecanum
+        chassis = mecanum.MecanumChassis()
+        chassis.set_velocity(velocity=speed, direction=angle, angular_rate=0)
 
     def yidong_xy(self, vx: float, vy: float) -> None:
         """按X/Y方向移动"""
         vx = max(-100, min(100, int(vx)))
         vy = max(-100, min(100, int(vy)))
         logger.info(f"按XY移动: vx={vx}, vy={vy}")
-        self.chassis.translation(vx * 10, vy * 10)
+        # 使用chassis进行XY移动
+        import mecanum
+        chassis = mecanum.MecanumChassis()
+        chassis.translation(vx, vy)
 
     # ===== 舵机控制 =====
 

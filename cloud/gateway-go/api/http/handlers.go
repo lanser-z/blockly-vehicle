@@ -2,6 +2,7 @@
 package http
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -95,7 +96,7 @@ func (h *Handlers) NotFound(c *gin.Context) {
 }
 
 // CameraSnapshot 摄像头快照代理
-// 通过 WebSocket 向车载系统请求摄像头快照
+// 通过 WebSocket 向车载系统请求摄像头快照，并等待响应
 func (h *Handlers) CameraSnapshot(c *gin.Context) {
 	vehicleID := c.Query("vehicle_id")
 	if vehicleID == "" {
@@ -118,11 +119,17 @@ func (h *Handlers) CameraSnapshot(c *gin.Context) {
 		return
 	}
 
+	// 初始化请求响应机制（如果尚未初始化）
+	conn.InitPendingRequests(5 * time.Second)
+
+	// 生成唯一的请求ID
+	requestID := fmt.Sprintf("cam_%d", time.Now().UnixNano())
+
 	// 创建请求消息
 	requestMsg := map[string]interface{}{
 		"type": "camera_snapshot_request",
 		"data": map[string]interface{}{
-			"request_id": fmt.Sprintf("%d", time.Now().UnixNano()),
+			"request_id": requestID,
 		},
 	}
 
@@ -140,16 +147,62 @@ func (h *Handlers) CameraSnapshot(c *gin.Context) {
 		return
 	}
 
-	// 由于 WebSocket 是异步的，这里使用简化的方案：
-	// 让车载系统在收到请求后直接通过 WebSocket 发送响应
-	// 但这需要修改车载系统代码来处理这个新消息类型
+	httpLogger.Infof("摄像头请求已发送: vehicle_id=%s, request_id=%s", vehicleID, requestID)
 
-	// 临时方案：直接返回错误，提示使用车载系统直接访问
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"error": "摄像头快照通过 WebSocket 代理尚未实现",
-		"message": "请直接访问车载系统的 HTTP 端点",
-		"vehicle_id": vehicleID,
-	})
+	// 等待响应（5秒超时）
+	respData, ok := conn.WaitForResponse(requestID, 5*time.Second)
+	if !ok {
+		httpLogger.Warnf("摄像头响应超时: request_id=%s", requestID)
+		// 返回占位图像
+		h.sendPlaceholderImage(c)
+		return
+	}
+
+	// 解析响应
+	var resp struct {
+		Type string `json:"type"`
+		Data struct {
+			RequestID string `json:"request_id"`
+			Image     string `json:"image"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respData, &resp); err != nil {
+		httpLogger.Errorf("解析摄像头响应失败: %v", err)
+		h.sendPlaceholderImage(c)
+		return
+	}
+
+	// 解码Base64图像
+	imageBytes, err := base64.StdEncoding.DecodeString(resp.Data.Image)
+	if err != nil {
+		httpLogger.Errorf("解码Base64图像失败: %v", err)
+		h.sendPlaceholderImage(c)
+		return
+	}
+
+	if len(imageBytes) == 0 {
+		httpLogger.Warnf("摄像头图像为空: request_id=%s", requestID)
+		h.sendPlaceholderImage(c)
+		return
+	}
+
+	c.Data(http.StatusOK, "image/jpeg", imageBytes)
+	httpLogger.Infof("摄像头图像已返回: request_id=%s, size=%d", requestID, len(imageBytes))
+}
+
+// sendPlaceholderImage 发送占位图像
+func (h *Handlers) sendPlaceholderImage(c *gin.Context) {
+	// 1x1像素透明JPEG
+	transparentPixel := []byte{
+		0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
+		0x00, 0x01, 0x00, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0x03, 0x02, 0x02, 0x03, 0x02, 0x02,
+		0x03, 0x03, 0x03, 0x03, 0x04, 0x03, 0x03, 0x04, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05,
+		0x05, 0x07, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+		0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0xFF, 0xC4, 0x00, 0x01, 0x00, 0x00, 0x01, 0x05, 0x01, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03,
+		0x04, 0x05, 0xFF, 0xDA, 0x00, 0x03, 0x01, 0x02, 0x03, 0x00, 0x02, 0x03, 0xFF, 0xD9,
+	}
+	c.Data(http.StatusOK, "image/jpeg", transparentPixel)
 }
 
 // CameraSnapshotDirect 直接摄像头快照（用于测试）

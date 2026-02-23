@@ -21,6 +21,10 @@ type Connection struct {
 	ConnectedAt   time.Time
 	mu            sync.RWMutex
 	closed        bool
+	// 请求响应匹配: request_id -> 响应通道
+	pendingRequests map[string]chan []byte
+	// 请求超时时间
+	requestTimeout time.Duration
 }
 
 // Send 发送消息到连接
@@ -53,6 +57,76 @@ func (c *Connection) IsClosed() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.closed
+}
+
+// InitPendingRequests 初始化请求响应匹配机制
+func (c *Connection) InitPendingRequests(timeout time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.pendingRequests == nil {
+		c.pendingRequests = make(map[string]chan []byte)
+		c.requestTimeout = timeout
+	}
+}
+
+// RegisterRequest 注册请求并返回响应通道
+func (c *Connection) RegisterRequest(requestID string) chan []byte {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.pendingRequests == nil {
+		c.pendingRequests = make(map[string]chan []byte)
+	}
+
+	respCh := make(chan []byte, 1)
+	c.pendingRequests[requestID] = respCh
+
+	// 设置超时自动清理
+	time.AfterFunc(c.requestTimeout, func() {
+		c.mu.Lock()
+		if ch, exists := c.pendingRequests[requestID]; exists {
+			delete(c.pendingRequests, requestID)
+			close(ch)
+		}
+		c.mu.Unlock()
+	})
+
+	return respCh
+}
+
+// DeliverResponse 传递响应到对应的请求通道
+func (c *Connection) DeliverResponse(requestID string, data []byte) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.pendingRequests == nil {
+		return false
+	}
+
+	respCh, exists := c.pendingRequests[requestID]
+	if !exists {
+		return false
+	}
+
+	// 非阻塞发送
+	select {
+	case respCh <- data:
+		return true
+	default:
+		return false
+	}
+}
+
+// WaitForResponse 等待响应（带超时）
+func (c *Connection) WaitForResponse(requestID string, timeout time.Duration) ([]byte, bool) {
+	respCh := c.RegisterRequest(requestID)
+
+	select {
+	case data := <-respCh:
+		return data, true
+	case <-time.After(timeout):
+		return nil, false
+	}
 }
 
 // Pool 连接池

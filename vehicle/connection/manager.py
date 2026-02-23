@@ -324,6 +324,16 @@ class VehicleConnectionManager:
             }
         })
 
+    def send_camera_snapshot(self, request_id: str, image_base64: str):
+        """发送摄像头快照响应"""
+        self.send({
+            "type": "camera_snapshot_response",
+            "data": {
+                "request_id": request_id,
+                "image": image_base64
+            }
+        })
+
     def is_connected(self) -> bool:
         """检查是否已连接"""
         return self.running and self.ws is not None

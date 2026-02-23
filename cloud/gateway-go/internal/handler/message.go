@@ -53,6 +53,9 @@ func (r *MessageRouter) RouteMessage(msg *message.Message, sourceConn *pool.Conn
 	case "status_update":
 		return r.forwardStatusUpdate(sourceConn, msg)
 
+	case "camera_snapshot_response":
+		return r.handleCameraSnapshotResponse(sourceConn, msg)
+
 	default:
 		msgLogger.Warnf("未知消息类型: %s", msg.Type)
 		return nil
@@ -210,6 +213,31 @@ func (r *MessageRouter) forwardStatusUpdate(sourceConn *pool.Connection, origina
 	}
 
 	return r.pool.BroadcastToClients(data)
+}
+
+// handleCameraSnapshotResponse 处理摄像头快照响应
+// 从车载系统接收响应并传递给等待的HTTP请求
+func (r *MessageRouter) handleCameraSnapshotResponse(sourceConn *pool.Connection, originalMsg *message.Message) error {
+	// 提取request_id
+	requestID, ok := originalMsg.Data["request_id"].(string)
+	if !ok || requestID == "" {
+		msgLogger.Warn("camera_snapshot_response缺少request_id")
+		return nil
+	}
+
+	// 将响应传递给等待的请求
+	msgLogger.Infof("传递摄像头响应: request_id=%s", requestID)
+
+	// 编码响应消息
+	respData, err := message.Encode(originalMsg)
+	if err != nil {
+		msgLogger.Errorf("编码摄像头响应失败: %v", err)
+		return err
+	}
+
+	// 传递给连接中的pending请求
+	sourceConn.DeliverResponse(requestID, respData)
+	return nil
 }
 
 // sendErrorToSource 发送错误响应（暂未实现，需要记录来源连接）
