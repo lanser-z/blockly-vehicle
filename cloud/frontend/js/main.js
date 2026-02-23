@@ -1475,7 +1475,60 @@ async function init() {
     // 连接WebSocket
     connectWebSocket();
 
+    // 启动摄像头预览更新
+    startCameraPreview();
+
     console.log('初始化完成');
+}
+
+// ===== 摄像头预览 =====
+let cameraUpdateTimer = null;
+
+function startCameraPreview() {
+    // 获取摄像头预览图片元素
+    const preview = document.getElementById('camera-preview');
+    if (!preview) return;
+
+    // 从配置或默认值获取车载服务URL
+    // 默认使用当前域名的 vehicle 子域名（通过FRP访问）
+    const getCameraUrl = () => {
+        const wsUrl = state.wsUrl || window.location.origin;
+        // 将 wss:// 转换为 https://, ws:// 转换为 http://
+        const baseUrl = wsUrl.replace('wss://', 'https://').replace('ws://', 'http://');
+        // 尝试使用 vehicle 子域名（需要FRP配置支持）
+        // 或直接使用当前域名 + /vehicle 前缀（需要网关代理）
+        return `${baseUrl.replace('/block', '')}/camera/snapshot`;
+    };
+
+    const updateCamera = async () => {
+        try {
+            // 只在有选中车辆时更新摄像头
+            if (!state.selectedVehicleId) return;
+
+            const cameraUrl = getCameraUrl();
+            const response = await fetch(cameraUrl);
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
+                preview.src = imageUrl;
+                // 释放旧的URL
+                if (preview.dataset.currentUrl) {
+                    URL.revokeObjectURL(preview.dataset.currentUrl);
+                }
+                preview.dataset.currentUrl = imageUrl;
+            }
+        } catch (error) {
+            // 静默失败，不刷屏
+            console.debug('摄像头更新失败:', error.message);
+        }
+    };
+
+    // 每秒更新一次
+    cameraUpdateTimer = setInterval(updateCamera, 1000);
+
+    // 初始更新
+    updateCamera();
 }
 
 // 页面加载完成后初始化

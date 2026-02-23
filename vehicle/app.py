@@ -101,6 +101,26 @@ def get_status():
     })
 
 
+@app.route('/camera/snapshot')
+def camera_snapshot():
+    """摄像头快照"""
+    try:
+        import cv2
+        # 读取一帧
+        if hal.vision_controller._read_frame():
+            frame = hal.vision_controller.current_frame
+            # 编码为JPEG
+            ret, jpg = cv2.imencode('.jpg', frame)
+            if ret:
+                from flask import Response
+                jpg_bytes = jpg.tobytes()
+                return Response(jpg_bytes, mimetype='image/jpeg')
+        return '', 404
+    except Exception as e:
+        logger.error(f"获取摄像头快照失败: {e}")
+        return '', 500
+
+
 # ===== SocketIO事件处理 =====
 
 @socketio.on('connect')
