@@ -610,12 +610,13 @@ function defineCodeGenerator() {
     };
 
     // 云台积木代码生成（按设计文档命名: yuntai_*）
+    // 交换上下积木的功能
     state.codeGenerator.forBlock['gimbal_up'] = function(block) {
-        return `yuntai_shang(30)\n`;
+        return `yuntai_xia(30)\n`;
     };
 
     state.codeGenerator.forBlock['gimbal_down'] = function(block) {
-        return `yuntai_xia(30)\n`;
+        return `yuntai_shang(30)\n`;
     };
 
     state.codeGenerator.forBlock['gimbal_left'] = function(block) {

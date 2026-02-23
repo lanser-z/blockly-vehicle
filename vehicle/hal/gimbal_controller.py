@@ -86,11 +86,11 @@ class GimbalController:
     # ===== 基础控制 =====
 
     def shang(self) -> None:
-        """云台向上"""
+        """云台向上（摄像头向上看）"""
         self._move_vertical(self.STEP_ANGLE)
 
     def xia(self) -> None:
-        """云台向下"""
+        """云台向下（摄像头向下看）"""
         self._move_vertical(-self.STEP_ANGLE)
 
     def zuo(self) -> None:
