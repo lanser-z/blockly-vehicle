@@ -69,25 +69,29 @@ class MotionController:
         """前进"""
         speed = self._clamp_speed(speed)
         logger.info(f"前进: 速度={speed}")
-        self.chassis.set_velocity(velocity=speed * 10, direction=0, angular_rate=0)
+        # 90度 = 向前（Y轴正方向）
+        self.chassis.set_velocity(velocity=speed * 10, direction=90, angular_rate=0)
 
     def houtui(self, speed: int = 50) -> None:
         """后退"""
         speed = self._clamp_speed(speed)
         logger.info(f"后退: 速度={speed}")
-        self.chassis.set_velocity(velocity=speed * 10, direction=180, angular_rate=0)
+        # 270度 = 向后（Y轴负方向）
+        self.chassis.set_velocity(velocity=speed * 10, direction=270, angular_rate=0)
 
     def zuopingyi(self, speed: int = 50) -> None:
         """左平移"""
         speed = self._clamp_speed(speed)
         logger.info(f"左平移: 速度={speed}")
-        self.chassis.set_velocity(velocity=speed * 10, direction=270, angular_rate=0)
+        # 180度 = 向左（X轴负方向）
+        self.chassis.set_velocity(velocity=speed * 10, direction=180, angular_rate=0)
 
     def youpingyi(self, speed: int = 50) -> None:
         """右平移"""
         speed = self._clamp_speed(speed)
         logger.info(f"右平移: 速度={speed}")
-        self.chassis.set_velocity(velocity=speed * 10, direction=90, angular_rate=0)
+        # 0度 = 向右（X轴正方向）
+        self.chassis.set_velocity(velocity=speed * 10, direction=0, angular_rate=0)
 
     def xuanzhuan(self, speed: int = 50) -> None:
         """原地旋转（顺时针）"""
