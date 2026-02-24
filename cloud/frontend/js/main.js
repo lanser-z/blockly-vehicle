@@ -1188,6 +1188,8 @@ function handleExecutionStarted(data) {
     showStatus('代码正在执行...');
     document.getElementById('btn-run').disabled = true;
     document.getElementById('btn-stop').disabled = false;
+    // 清空输出控制台
+    clearOutputConsole();
 }
 
 function handleExecutionFinished(data) {
@@ -1195,6 +1197,10 @@ function handleExecutionFinished(data) {
     showStatus('代码执行完成');
     document.getElementById('btn-run').disabled = false;
     document.getElementById('btn-stop').disabled = true;
+    // 显示输出
+    if (data.output && data.output.length > 0) {
+        showOutput(data.output);
+    }
 }
 
 function handleExecutionError(data) {
@@ -1202,6 +1208,28 @@ function handleExecutionError(data) {
     showError('执行错误: ' + data.error);
     document.getElementById('btn-run').disabled = false;
     document.getElementById('btn-stop').disabled = true;
+    // 显示错误输出
+    if (data.output && data.output.length > 0) {
+        showOutput(data.output, true);
+    }
+}
+
+function clearOutputConsole() {
+    const console = document.getElementById('output-console');
+    console.innerHTML = '<div class="output-empty" data-i18n="暂无输出">暂无输出</div>';
+}
+
+function showOutput(outputLines, isError = false) {
+    const console = document.getElementById('output-console');
+    console.innerHTML = '';
+    outputLines.forEach(line => {
+        const div = document.createElement('div');
+        div.className = 'output-line' + (isError ? ' error' : '');
+        div.textContent = line;
+        console.appendChild(div);
+    });
+    // 滚动到底部
+    console.scrollTop = console.scrollHeight;
 }
 
 function showStatus(message) {

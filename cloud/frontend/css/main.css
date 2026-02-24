@@ -696,3 +696,38 @@ body {
     background-color: rgba(255, 255, 255, 0.3);
     border-color: rgba(255, 255, 255, 0.8);
 }
+
+/* ===== 输出控制台 ===== */
+.output-console {
+    background-color: #1e1e1e;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    min-height: 100px;
+    max-height: 150px;
+    overflow-y: auto;
+    color: #d4d4d4;
+    line-height: 1.5;
+}
+
+.output-empty {
+    color: #666;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+.output-line {
+    padding: 2px 0;
+    word-break: break-all;
+}
+
+.output-line.error {
+    color: #f48771;
+}
+
+.output-line.success {
+    color: #89d185;
+}

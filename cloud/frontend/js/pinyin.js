@@ -9,6 +9,21 @@ export const PINYIN_TRANSLATIONS = {
     '在线': 'zài xiàn',
     '离线': 'lí xiàn',
 
+    // ===== 控制面板 =====
+    '运行控制': 'yùn xíng kòng zhì',
+    '运行': 'yùn xíng',
+    '停止': 'tíng zhǐ',
+    '紧急停止': 'jǐn jí tíng zhǐ',
+    '生成的代码': 'shēng chéng de dài mǎ',
+    '输出': 'shū chū',
+    '暂无输出': 'zàn wú shū chū',
+    '传感器状态': 'chuán gǎn qì zhuàng tài',
+    '超声波': 'chāo shēng bō',
+    '巡线': 'xún xiàn',
+    '电池': 'diàn chí',
+    '摄像头': 'shè xiàng tóu',
+    '摄像头未连接': 'shè xiàng tóu wèi lián jiē',
+
     // ===== 课程系统 =====
     '选择课程': 'xuǎn zé kè chéng',
     '入门阶段': 'rù mén jiē duàn',
