@@ -1130,6 +1130,11 @@ function updateVehicleList(vehicles) {
         option.disabled = !vehicle.online;
         select.appendChild(option);
     });
+
+    // 如果已选择小车，启动摄像头预览
+    if (state.connected && state.vehicleId) {
+        startCameraPreview();
+    }
 }
 
 function updateVehicleStatus(vehicleId, status) {
@@ -1389,6 +1394,13 @@ function setupEventListeners() {
         state.vehicleId = e.target.value;
         enableControls(state.connected && state.vehicleId);
         showStatus(state.vehicleId ? `已选择: ${state.vehicleId}` : '请选择小车');
+
+        // 切换小车时重启摄像头预览
+        if (state.connected && state.vehicleId) {
+            startCameraPreview();
+        } else {
+            stopCameraPreview();
+        }
     });
 
     // 运行按钮
@@ -1479,8 +1491,7 @@ async function init() {
     // 连接WebSocket
     connectWebSocket();
 
-    // 启动摄像头预览更新
-    startCameraPreview();
+    // 注意：摄像头预览将在连接小车后启动
 
     console.log('初始化完成');
 }
@@ -1488,16 +1499,27 @@ async function init() {
 // ===== 摄像头预览 =====
 let cameraUpdateTimer = null;
 
+function stopCameraPreview() {
+    if (cameraUpdateTimer) {
+        clearInterval(cameraUpdateTimer);
+        cameraUpdateTimer = null;
+    }
+}
+
 function startCameraPreview() {
+    // 先停止旧的预览
+    stopCameraPreview();
+
     // 获取摄像头预览图片元素
     const preview = document.getElementById('camera-preview');
     if (!preview) return;
 
-    // 获取摄像头URL - 通过网关代理
+    // 获取摄像头URL - 通过网关代理，包含车辆ID
     const getCameraUrl = () => {
         const origin = window.location.origin;
+        const vehicleId = state.vehicleId || 'vehicle-001';
         // 使用 /block/camera/snapshot 路径，由nginx代理到网关
-        return `${origin}/block/camera/snapshot`;
+        return `${origin}/block/camera/snapshot?vehicle_id=${vehicleId}`;
     };
 
     const updateCamera = async () => {
