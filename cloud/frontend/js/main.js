@@ -797,14 +797,24 @@ function defineCodeGenerator() {
 
     // 变量积木
     state.codeGenerator.forBlock['variables_get'] = function(block) {
-        const code = state.codeGenerator.nameDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+        const varName = block.getFieldValue('VAR');
+        // 如果nameDB_存在（运行代码生成时），使用它来获取变量名
+        // 否则（拖拽预览时），直接使用变量名
+        const code = state.codeGenerator.nameDB_
+            ? state.codeGenerator.nameDB_.getName(varName, Blockly.Variables.NAME_TYPE)
+            : varName;
         return [code, state.codeGenerator.ORDER_ATOMIC];
     };
 
     state.codeGenerator.forBlock['variables_set'] = function(block) {
         const argument0 = state.codeGenerator.valueToCode(block, 'VALUE', state.codeGenerator.ORDER_NONE) || '0';
-        const varName = state.codeGenerator.nameDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
-        return varName + ' = ' + argument0 + '\n';
+        const varName = block.getFieldValue('VAR');
+        // 如果nameDB_存在（运行代码生成时），使用它来获取变量名
+        // 否则（拖拽预览时），直接使用变量名
+        const name = state.codeGenerator.nameDB_
+            ? state.codeGenerator.nameDB_.getName(varName, Blockly.Variables.NAME_TYPE)
+            : varName;
+        return name + ' = ' + argument0 + '\n';
     };
 
     // ===== 循环积木代码生成 =====
@@ -835,7 +845,7 @@ function defineCodeGenerator() {
     // 当/直到循环
     state.codeGenerator.forBlock['controls_whileUntil'] = function(block) {
         const mode = block.getFieldValue('MODE');
-        let condition = state.codeGenerator.valueToCode(block, 'BOOL', state.codeGenerator.ORDER_NONE) || 'False';
+        const condition = state.codeGenerator.valueToCode(block, 'BOOL', state.codeGenerator.ORDER_NONE);
         let branch = state.codeGenerator.statementToCode(block, 'DO');
         branch = state.codeGenerator.addLoopTrap(branch, block);
 
