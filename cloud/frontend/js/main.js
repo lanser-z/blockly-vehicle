@@ -265,8 +265,19 @@ function getToolbox() {
 function initBlockly() {
     // 创建Python代码生成器
     state.codeGenerator = new Blockly.Generator('Python');
-    state.codeGenerator.ORDER_ATOMIC = 0;
-    state.codeGenerator.ORDER_NONE = 0;
+
+    // 定义运算优先级常量（Python优先级顺序）
+    state.codeGenerator.ORDER_ATOMIC = 0;           // 原子值：数字、字符串、变量
+    state.codeGenerator.ORDER_NONE = 0;             // 不关心优先级
+    state.codeGenerator.ORDER_FUNCTION_CALL = 2;    // 函数调用
+    state.codeGenerator.ORDER_EXPONENTIATION = 3;   // 指数运算 **
+    state.codeGenerator.ORDER_UNARY_SIGN = 4;       // 一元符号 +/-
+    state.codeGenerator.ORDER_MULTIPLICATIVE = 5;   // 乘除模 * / //
+    state.codeGenerator.ORDER_ADDITIVE = 6;         // 加减 + -
+    state.codeGenerator.ORDER_RELATIONAL = 7;       // 比较运算 < > <= >=
+    state.codeGenerator.ORDER_EQUALITY = 8;         // 相等性比较 == != <>
+    state.codeGenerator.ORDER_LOGICAL_AND = 9;      // 逻辑与 and
+    state.codeGenerator.ORDER_LOGICAL_OR = 10;      // 逻辑或 or
 
     // 定义缩进
     state.codeGenerator.INDENT = '    ';
