@@ -150,6 +150,10 @@ class SandboxGlobals:
         self._globals['random'] = random
         self._globals['math'] = math
 
+        # 导入 threading 模块（用于并发积木）
+        import threading
+        self._globals['threading'] = threading
+
     def get_globals(self) -> Dict[str, Any]:
         """获取全局变量字典"""
         return self._globals.copy()

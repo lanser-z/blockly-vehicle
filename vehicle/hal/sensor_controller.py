@@ -133,28 +133,26 @@ class SensorController:
 
     # ===== 电池传感器 =====
 
-    def dianchi(self) -> int:
-        """获取电池电量百分比
+    def dianchi(self) -> float:
+        """获取电池电压
 
         Returns:
-            int: 电量百分比，范围0-100
+            float: 电池电压，单位V，范围0-5.0
         """
-        # Board.getBattery()返回ADC值，需要转换为百分比
+        # Board.getBattery()返回ADC值（mV）
         adc = Board.getBattery()
-        # 假设ADC值范围：满电约4200，低电约3000
-        # 转换为百分比
-        percentage = int((adc - 3000) / (4200 - 3000) * 100)
-        percentage = max(0, min(100, percentage))
-        logger.debug(f"电池电量: {percentage}%")
-        return percentage
+        # 转换为电压（V）
+        voltage = adc / 1000.0
+        logger.debug(f"电池电压: {voltage}V")
+        return voltage
 
     def dianchi_dian(self) -> bool:
         """检测电池电量是否低
 
         Returns:
-            bool: True表示电量低于20%
+            bool: True表示电压低于3.5V
         """
-        return self.dianchi() < 20
+        return self.dianchi() < 3.5
 
     # ===== 综合状态 =====
 
@@ -178,7 +176,7 @@ class SensorController:
                 'lost': self.xunxian_duqu()
             },
             'battery': {
-                'percentage': self.dianchi(),
+                'voltage': self.dianchi(),
                 'low': self.dianchi_dian()
             }
         }

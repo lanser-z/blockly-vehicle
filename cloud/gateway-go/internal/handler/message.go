@@ -207,6 +207,15 @@ func (r *MessageRouter) forwardStatusUpdate(sourceConn *pool.Connection, origina
 		"busy":   busy,
 	}
 
+	// 包含传感器数据
+	if sensors, ok := originalMsg.Data["sensors"].(map[string]interface{}); ok {
+		msg.Data["sensors"] = sensors
+	}
+	// 包含process_id
+	if processID, ok := originalMsg.Data["process_id"].(string); ok {
+		msg.Data["process_id"] = processID
+	}
+
 	data, err := message.Encode(msg)
 	if err != nil {
 		return err

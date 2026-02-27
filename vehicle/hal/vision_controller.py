@@ -2,11 +2,18 @@
 硬件抽象层 - 视觉控制器
 
 封装摄像头颜色识别功能
+
+使用帧缓冲池架构：
+- 后台线程持续读取摄像头帧
+- 主线程从缓冲区获取最新帧
+- 避免多线程直接访问摄像头资源
 """
 
 import logging
 import os
 import sys
+import threading
+import time
 from typing import Optional, Tuple
 
 # 配置日志
@@ -60,7 +67,11 @@ COLOR_NAMES_CN = {
 
 
 class VisionController:
-    """视觉控制器 - 颜色识别"""
+    """视觉控制器 - 颜色识别
+
+    使用帧缓冲池架构，后台线程持续读取摄像头，
+    避免多线程访问冲突。
+    """
 
     # 检测阈值
     MIN_CONTOUR_AREA = 500  # 最小轮廓面积
@@ -82,20 +93,97 @@ class VisionController:
         # 设置分辨率
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-        self.current_frame = None
-        logger.info("摄像头初始化成功")
+
+        # 帧缓冲池（线程安全）
+        self._frame_lock = threading.Lock()
+        self._current_frame = None
+        self._frame_count = 0
+
+        # 后台读取线程控制
+        self._running = False
+        self._read_thread = None
+
+        # 启动后台读取线程
+        self._start_background_reader()
+
+        logger.info("摄像头初始化成功（帧缓冲池模式）")
+
+    def _start_background_reader(self):
+        """启动后台读取线程"""
+        if self._running:
+            return
+
+        self._running = True
+        self._read_thread = threading.Thread(
+            target=self._background_read_loop,
+            daemon=True,
+            name="CameraReader"
+        )
+        self._read_thread.start()
+        logger.info("后台摄像头读取线程已启动")
+
+    def _background_read_loop(self):
+        """后台读取循环（在独立线程中运行）"""
+        consecutive_failures = 0
+        max_failures = 10
+
+        while self._running:
+            try:
+                ret, frame = self.camera.read()
+
+                if ret and frame is not None:
+                    # 成功读取帧，更新缓冲区
+                    with self._frame_lock:
+                        self._current_frame = frame
+                        self._frame_count += 1
+                    consecutive_failures = 0
+
+                    # 控制帧率，避免过度占用CPU
+                    time.sleep(0.03)  # 约30fps
+                else:
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_failures:
+                        logger.error(f"摄像头连续读取失败 {consecutive_failures} 次，停止后台读取")
+                        break
+                    time.sleep(0.1)
+
+            except Exception as e:
+                logger.error(f"后台读取摄像头异常: {e}")
+                consecutive_failures += 1
+                if consecutive_failures >= max_failures:
+                    logger.error("达到最大失败次数，停止后台读取")
+                    break
+                time.sleep(0.5)
+
+        logger.info("后台摄像头读取线程已停止")
 
     def _read_frame(self) -> bool:
-        """读取一帧图像
+        """从帧缓冲区获取最新图像
 
         Returns:
-            bool: 是否成功读取
+            bool: 是否成功获取
         """
-        ret, frame = self.camera.read()
-        if ret:
-            self.current_frame = frame
-            return True
+        with self._frame_lock:
+            if self._current_frame is not None:
+                self.current_frame = self._current_frame.copy()
+                return True
         return False
+
+    def get_latest_frame(self) -> Optional[np.ndarray]:
+        """获取最新帧（非阻塞）"""
+        with self._frame_lock:
+            if self._current_frame is not None:
+                return self._current_frame.copy()
+        return None
+
+    def get_frame_count(self) -> int:
+        """获取已读取的帧数"""
+        with self._frame_lock:
+            return self._frame_count
+
+    def is_background_running(self) -> bool:
+        """检查后台读取线程是否正在运行"""
+        return self._running and self._read_thread is not None and self._read_thread.is_alive()
 
     def _detect_color_in_frame(self, frame, color_name: str) -> Tuple[bool, Optional[Tuple[int, int, int]]]:
         """在图像帧中检测指定颜色
@@ -191,9 +279,25 @@ class VisionController:
 
     def release(self):
         """释放摄像头资源"""
+        # 停止后台读取线程
+        self._running = False
+
+        # 等待后台线程结束（最多2秒）
+        if self._read_thread and self._read_thread.is_alive():
+            self._read_thread.join(timeout=2.0)
+            if self._read_thread.is_alive():
+                logger.warning("后台读取线程未能在超时时间内结束")
+
+        # 释放摄像头
         if self.camera is not None:
             self.camera.release()
+            self.camera = None
             logger.info("摄像头已释放")
+
+        # 清空缓冲区
+        with self._frame_lock:
+            self._current_frame = None
+            self._frame_count = 0
 
 
 # 全局实例

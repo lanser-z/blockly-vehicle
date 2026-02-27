@@ -37,6 +37,7 @@ const CATEGORY_TRANSLATIONS = {
         text: '文本',
         lists: '列表',
         functions: '函数',
+        thread: '并发',
     },
     pinyin: {
         motion: 'yùn dòng',
@@ -49,6 +50,7 @@ const CATEGORY_TRANSLATIONS = {
         text: 'wén běn',
         lists: 'liè biǎo',
         functions: 'hán shù',
+        thread: 'bìng fā',
     }
 };
 
@@ -95,6 +97,10 @@ const BLOCK_TEXT_TRANSLATIONS = {
         channel_2: '第2路',
         channel_3: '第3路',
         channel_4: '第4路',
+        // 并发积木
+        thread_start: '同时开始',
+        thread_task: '任务',
+        thread_forever: '一直执行',
     },
     pinyin: {
         // 运动积木
@@ -137,6 +143,10 @@ const BLOCK_TEXT_TRANSLATIONS = {
         channel_2: 'dì 2 lù',
         channel_3: 'dì 3 lù',
         channel_4: 'dì 4 lù',
+        // 并发积木
+        thread_start: 'tóng shí kāi shǐ',
+        thread_task: 'rèn wù',
+        thread_forever: 'yì zhí zhí xíng',
     }
 };
 
@@ -194,6 +204,14 @@ function getToolbox() {
                 colour: '#9E5BE9',
                 contents: [
                     { kind: 'block', type: 'vision_detect_color' },
+                ],
+            },
+            {
+                kind: 'category',
+                name: cat.thread,
+                colour: '#FF9966',
+                contents: [
+                    { kind: 'block', type: 'thread_start' },
                 ],
             },
             {
@@ -576,6 +594,24 @@ function defineBlocks() {
         }
     };
 
+    // ===== 并发积木 =====
+
+    // 同时开始积木（多任务并行）
+    Blockly.Blocks['thread_start'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField('🔄 ' + getBlockText('thread_start'));
+            this.appendStatementInput('TASK1')
+                .appendField('1️⃣ ' + getBlockText('thread_task') + ' 1');
+            this.appendStatementInput('TASK2')
+                .appendField('2️⃣ ' + getBlockText('thread_task') + ' 2');
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(30);  // 橙色
+            this.setTooltip('两个任务会同时执行');
+        }
+    };
+
     console.log('积木块定义完成');
 }
 
@@ -687,6 +723,54 @@ function defineCodeGenerator() {
     state.codeGenerator.forBlock['delay_wait'] = function(block) {
         const seconds = state.codeGenerator.valueToCode(block, 'SECONDS', state.codeGenerator.ORDER_NONE) || '0';
         return `dengdai(${seconds})\n`;
+    };
+
+    // ===== 并发积木代码生成 =====
+
+    // 同时开始积木 - 生成多线程代码
+    // 支持串联：串联的 thread_start 会合并成更大的并发组
+    state.codeGenerator.forBlock['thread_start'] = function(block) {
+        const tasks = [];
+        let threadCount = 0;
+
+        // 递归收集所有任务（包括串联的 thread_start）
+        function collectTasks(currentBlock) {
+            const task1 = state.codeGenerator.statementToCode(currentBlock, 'TASK1') || 'pass';
+            const task2 = state.codeGenerator.statementToCode(currentBlock, 'TASK2') || 'pass';
+            tasks.push(task1, task2);
+            threadCount += 2;
+
+            // 检查下一个积木是否也是 thread_start
+            const nextBlock = currentBlock.nextConnection && currentBlock.nextConnection.targetBlock();
+            if (nextBlock && nextBlock.type === 'thread_start') {
+                collectTasks(nextBlock);
+            }
+        }
+
+        // 收集所有任务
+        collectTasks(block);
+
+        // 生成任务函数和线程启动代码
+        let funcDefs = '';
+        let threadCreate = '';
+        let threadJoin = '';
+
+        for (let i = 0; i < threadCount; i++) {
+            funcDefs += `def __thread_task_${i}():\n${tasks[i]}\n`;
+            const isLast = (i === threadCount - 1);
+            threadCreate += `__t${i} = threading.Thread(target=__thread_task_${i}, daemon=True)\n`;
+            threadCreate += `__t${i}.start()\n`;
+            if (!isLast) {
+                threadCreate += `dengdai(0.01)  # 确保线程启动\n`;
+            }
+            threadJoin += `__t${i}.join()\n`;
+        }
+
+        // 生成完整的多线程代码
+        return `${funcDefs}
+${threadCreate}
+${threadJoin}
+`;
     };
 
     // ===== Blockly内置积木代码生成 =====
@@ -1161,19 +1245,24 @@ function updateVehicleList(vehicles) {
 function updateVehicleStatus(vehicleId, status) {
     if (vehicleId === state.vehicleId) {
         enableControls(status.online && !status.busy);
+        // 更新传感器显示
+        if (status.sensors) {
+            updateSensorDisplay(status.sensors);
+        }
     }
 }
 
 function updateSensorDisplay(sensors) {
-    if (sensors.ultrasonic !== undefined) {
-        document.getElementById('sensor-ultrasonic').textContent = sensors.ultrasonic;
+    // 适配实际的传感器数据结构
+    if (sensors.ultrasonic && sensors.ultrasonic.distance_cm !== undefined) {
+        document.getElementById('sensor-ultrasonic').textContent = sensors.ultrasonic.distance_cm;
     }
-    if (sensors.infrared) {
+    if (sensors.line_follower && sensors.line_follower.sensors) {
         document.getElementById('sensor-line').textContent =
-            sensors.infrared.map((v) => v ? '●' : '○').join(' ');
+            sensors.line_follower.sensors.map((v) => v ? '●' : '○').join(' ');
     }
-    if (sensors.battery !== undefined) {
-        document.getElementById('sensor-battery').textContent = sensors.battery.toFixed(1);
+    if (sensors.battery && sensors.battery.voltage !== undefined) {
+        document.getElementById('sensor-battery').textContent = sensors.battery.voltage.toFixed(1);
     }
 }
 
@@ -1547,12 +1636,29 @@ async function init() {
 
 // ===== 摄像头预览 =====
 let cameraUpdateTimer = null;
+let sensorUpdateTimer = null;
 
 function stopCameraPreview() {
     if (cameraUpdateTimer) {
         clearInterval(cameraUpdateTimer);
         cameraUpdateTimer = null;
     }
+    stopSensorUpdates();
+}
+
+function stopSensorUpdates() {
+    if (sensorUpdateTimer) {
+        clearInterval(sensorUpdateTimer);
+        sensorUpdateTimer = null;
+    }
+}
+
+function requestSensorUpdate() {
+    if (!state.vehicleId) return;
+    send({
+        type: 'get_status',
+        vehicle_id: state.vehicleId
+    });
 }
 
 function startCameraPreview() {
@@ -1597,6 +1703,14 @@ function startCameraPreview() {
 
     // 初始更新
     updateCamera();
+
+    // 启动传感器更新（每2秒更新一次）
+    if (sensorUpdateTimer) {
+        clearInterval(sensorUpdateTimer);
+    }
+    sensorUpdateTimer = setInterval(requestSensorUpdate, 2000);
+    // 初始请求
+    requestSensorUpdate();
 }
 
 // 页面加载完成后初始化
